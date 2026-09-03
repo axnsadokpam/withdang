@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Lounge with DANG — Tabletop & Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=dang10">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <!-- Ambient Candlelit & Faction Warmth -->
+  <div class="ambient-auras">
+    <div class="aura aura-warm"></div>
+    <div class="aura aura-rose"></div>
+    <div class="aura aura-emerald"></div>
+    <div class="aura aura-sapphire"></div>
+  </div>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo-container">
+        <!-- Monarch Crown Emblem -->
+        <svg class="brand-crown" width="28" height="24" viewBox="0 0 32 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 22C4 20.8 28 20.8 28 22L27 24C27 24.6 5 24.6 5 24L4 22Z" fill="url(#lobbyCrownBand)"/>
+          <path d="M5 20L7.5 10L12.5 15L16 6L19.5 15L24.5 10L27 20H5Z" fill="url(#lobbyCrownMain)" stroke="#d97706" stroke-width="0.8"/>
+          <circle cx="7.5" cy="9" r="1.5" fill="#fef08a"/>
+          <circle cx="16" cy="5" r="2" fill="#fef08a"/>
+          <circle cx="24.5" cy="9" r="1.5" fill="#fef08a"/>
+          <circle cx="9" cy="22.5" r="1" fill="#10b981"/>
+          <circle cx="14" cy="22.5" r="1" fill="#f43f5e"/>
+          <circle cx="18" cy="22.5" r="1" fill="#f59e0b"/>
+          <circle cx="23" cy="22.5" r="1" fill="#3b82f6"/>
+          <defs>
+            <linearGradient id="lobbyCrownMain" x1="4" y1="5" x2="28" y2="24" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fde047"/>
+              <stop offset="0.45" stop-color="#f59e0b"/>
+              <stop offset="1" stop-color="#b45309"/>
+            </linearGradient>
+            <linearGradient id="lobbyCrownBand" x1="4" y1="20" x2="28" y2="24" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fef08a"/>
+              <stop offset="1" stop-color="#d97706"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="brand-text-block">
+          <h1 class="logo-title">LOUNGE WITH DANG</h1>
+          <span class="logo-badge">TABLETOP &amp; LOUNGE</span>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <span class="lounge-tag"><span class="lounge-glow"></span> LIVE TABLE</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-wrapper">
+    <div class="portal-hero">
+      <h2 class="portal-headline">PLAY TOGETHER</h2>
+      <p class="portal-subheadline">A classic board game for shared laughs, friendly banter, and late-night hangouts.</p>
+    </div>
+
+    <!-- MAIN TWO-PILLAR PORTAL -->
+    <div id="join-card" class="portal-grid">
+      
+      <!-- PILLAR 1: START A TABLE -->
+      <div class="portal-column host-column">
+        <div class="column-header">
+          <div class="column-badge badge-host">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>
+            START A TABLE
+          </div>
+          <h3 class="column-title">Host Table</h3>
+          <p class="column-desc">Open a private room and invite someone special or a group of friends.</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="host-name">Your Name</label>
+          <div class="input-wrap">
+            <svg class="input-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="host-name" class="input-field" placeholder="e.g. Alex" maxlength="15" autocomplete="off">
+          </div>
+        </div>
+
+                        <div class="collapsible-group">
+          <button type="button" class="collapsible-toggle" id="btn-toggle-options" aria-expanded="false">
+            <div class="toggle-left">
+              <svg class="toggle-cog" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span>Table Rules & Color</span>
+              <span class="toggle-summary-badge" id="options-summary-chip">Quick &bull; Emerald</span>
+            </div>
+            <svg class="toggle-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+
+          <div class="collapsible-drawer" id="options-drawer">
+            <div class="drawer-inner">
+              <div class="drawer-subgroup">
+                <label class="drawer-sublabel">Match Rules</label>
+                <div class="game-mode-selector">
+                  <button type="button" class="mode-btn active" data-mode="quick">
+                    <span class="mode-title">⚡ Quick Match</span>
+                    <span class="mode-desc">First to 2 Goals &bull; ~8m</span>
+                  </button>
+                  <button type="button" class="mode-btn" data-mode="classic">
+                    <span class="mode-title">🏆 Classic</span>
+                    <span class="mode-desc">All 4 Goals &bull; ~20m</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="drawer-subgroup">
+                <label class="drawer-sublabel">Your Table Color</label>
+                <div class="color-choice-selector" id="color-choice-selector">
+                  <button type="button" class="color-chip active" data-color="green" title="Emerald Green">
+                    <span class="chip-swatch chip-green"></span>
+                    <span class="chip-label">Emerald</span>
+                  </button>
+                  <button type="button" class="color-chip" data-color="red" title="Ruby Red">
+                    <span class="chip-swatch chip-red"></span>
+                    <span class="chip-label">Ruby</span>
+                  </button>
+                  <button type="button" class="color-chip" data-color="yellow" title="Honey Amber">
+                    <span class="chip-swatch chip-yellow"></span>
+                    <span class="chip-label">Amber</span>
+                  </button>
+                  <button type="button" class="color-chip" data-color="blue" title="Sapphire Blue">
+                    <span class="chip-swatch chip-blue"></span>
+                    <span class="chip-label">Sapphire</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Table Size</label>
+          <div class="player-count-selector">
+            <button type="button" class="count-btn active" data-count="2">
+              <span class="count-num">2P</span>
+              <span class="count-title">Cozy Pair</span>
+            </button>
+            <button type="button" class="count-btn" data-count="3">
+              <span class="count-num">3P</span>
+              <span class="count-title">Trio</span>
+            </button>
+            <button type="button" class="count-btn" data-count="4">
+              <span class="count-num">4P</span>
+              <span class="count-title">Full Table</span>
+            </button>
+          </div>
+        </div>
+
+        <button id="btn-create-room" class="btn-primary">
+          <span>START TABLE</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+      <!-- PILLAR 2: JOIN A FRIEND -->
+      <div class="portal-column join-column" id="join-pillar">
+        <div class="column-header">
+          <div class="column-badge badge-join">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            JOIN A FRIEND
+          </div>
+          <h3 class="column-title">Take a Seat</h3>
+          <p class="column-desc">Have an invite code or link? Enter your name to jump right into the game.</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="join-name">Your Name</label>
+          <div class="input-wrap">
+            <svg class="input-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="join-name" class="input-field" placeholder="Enter your name..." maxlength="15" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="room-code-input">6-Letter Invite Code</label>
+          <div class="input-wrap">
+            <svg class="input-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="text" id="room-code-input" class="input-field input-room-code" placeholder="CODE" maxlength="6" autocomplete="off">
+          </div>
+        </div>
+
+        <button id="btn-join-room" class="btn-secondary-action">
+          <span>TAKE A SEAT</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ERROR BANNER -->
+    <div id="error-msg" class="error-banner" style="display: none;"></div>
+
+    <!-- WAITING LOBBY CARD (STAGING) -->
+    <div id="waiting-card" class="waiting-box" style="display: none;">
+      <div class="waiting-header">
+        <div class="waiting-badge">TABLE OPEN</div>
+        <h3 class="waiting-title">YOUR TABLE IS READY</h3>
+        <p class="waiting-desc">Send the invite code or link to your friend so they can pull up a seat.</p>
+      </div>
+
+      <div class="room-code-pod">
+        <div class="pod-label">INVITE CODE</div>
+        <div id="lobby-room-code" class="pod-code">------</div>
+        <button id="btn-copy-code" class="pod-copy-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy Invite Link
+        </button>
+      </div>
+
+      <div class="roster-block">
+        <div class="roster-header">
+          <span>AT THE TABLE</span>
+          <strong id="player-count-label" class="roster-count">1/2</strong>
+        </div>
+        <div id="player-slots" class="player-slots-list"></div>
+      </div>
+
+      <button id="btn-start-bots" class="btn-primary btn-bot-start">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span>ADD AI BOT &amp; START PLAYING</span>
+      </button>
+
+      <div class="lobby-radar-status">
+        <span class="radar-dot"></span> Waiting for your friend to join...
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/lobby.js"></script>
+</body>
+</html>

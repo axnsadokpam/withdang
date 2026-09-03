@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Lounge with DANG</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/board.css?v=dang10">
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/three.min.js"></script>
+</head>
+<body class="arena-body">
+
+  <div class="arena-backdrop">
+    <div class="ambient-glow glow-green"></div>
+    <div class="ambient-glow glow-red"></div>
+    <div class="ambient-glow glow-yellow"></div>
+    <div class="ambient-glow glow-blue"></div>
+  </div>
+
+  <header class="arena-top-bar">
+    <div class="top-bar-left">
+      <div class="arena-brand">
+        <svg class="brand-crown" width="28" height="24" viewBox="0 0 32 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 22C4 20.8 28 20.8 28 22L27 24C27 24.6 5 24.6 5 24L4 22Z" fill="url(#crownBandGold)"/>
+          <path d="M5 20L7.5 10L12.5 15L16 6L19.5 15L24.5 10L27 20H5Z" fill="url(#crownMainGold)" stroke="#d97706" stroke-width="0.8"/>
+          <circle cx="7.5" cy="9" r="1.5" fill="#fef08a"/>
+          <circle cx="16" cy="5" r="2" fill="#fef08a"/>
+          <circle cx="24.5" cy="9" r="1.5" fill="#fef08a"/>
+          <circle cx="9" cy="22.5" r="1" fill="#10b981"/>
+          <circle cx="14" cy="22.5" r="1" fill="#ef4444"/>
+          <circle cx="18" cy="22.5" r="1" fill="#f59e0b"/>
+          <circle cx="23" cy="22.5" r="1" fill="#3b82f6"/>
+          <defs>
+            <linearGradient id="crownMainGold" x1="4" y1="5" x2="28" y2="24" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fde047"/>
+              <stop offset="0.45" stop-color="#f59e0b"/>
+              <stop offset="1" stop-color="#b45309"/>
+            </linearGradient>
+            <linearGradient id="crownBandGold" x1="4" y1="20" x2="28" y2="24" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fef08a"/>
+              <stop offset="1" stop-color="#d97706"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="brand-text">
+          <span class="brand-title">LOUNGE WITH</span>
+          <span class="brand-subtitle">DANG</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="top-bar-center">
+      <div class="control-pills">
+        <div class="control-pill">
+          <kbd class="hud-kbd">Space</kbd>
+          <span class="pill-label">Roll Dice</span>
+        </div>
+        <div class="pill-separator">•</div>
+        <div class="control-pill">
+          <span class="key-cluster">
+            <kbd class="hud-kbd">1</kbd>
+            <kbd class="hud-kbd">2</kbd>
+            <kbd class="hud-kbd">3</kbd>
+            <kbd class="hud-kbd">4</kbd>
+          </span>
+          <span class="pill-label">Move Pawn</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="top-bar-right">
+      <div class="room-badge">
+        <span class="badge-label">Room:</span>
+        <strong id="header-room-code" class="badge-code">------</strong>
+      </div>
+      <button id="btn-announcer-toggle" class="hud-icon-btn active" title="Voice Announcer (On/Off)">
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11l18-5v12L3 13v-2z"/>
+          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+        </svg>
+      </button>
+      <button id="btn-sound-toggle" class="hud-icon-btn" title="Toggle Audio">
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+      </button>
+      <button id="btn-rules-trigger" class="hud-icon-btn" title="How to Play">
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      </button>
+      <button id="btn-fullscreen" class="hud-icon-btn" title="Toggle Fullscreen">
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+      </button>
+            <!-- VOICE CHAT CONTROLS -->
+      <button id="btn-voice-toggle" class="hud-icon-btn voice-btn" title="Join Voice Chat (V)">
+        <svg class="icon-svg icon-mic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        <span id="voice-status-dot" class="voice-dot"></span>
+      </button>
+      <button id="btn-voice-mute" class="hud-icon-btn voice-mute-btn" title="Mute Mic (M)" style="display: none;">
+        <svg class="icon-svg icon-mic-mute" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="1" y1="1" x2="23" y2="23"/>
+          <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+          <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <button id="btn-toggle-chat" class="hud-icon-btn chat-toggle-btn active" title="Toggle Chat & Activity">
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span id="chat-unread-dot" class="unread-dot"></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="arena-stage" id="arena-stage">
+    
+    <!-- LEFT ACTION STATION -->
+    <aside class="hud-station hud-left">
+      
+      <!-- TURN & DICE CARD -->
+      <div class="hud-card action-card">
+        <div id="turn-banner" class="turn-status banner-green">
+          <div class="turn-meta">
+            <span class="turn-eyebrow">YOUR TURN</span>
+            <span id="turn-player-name" class="turn-name">GREEN</span>
+          </div>
+          <div class="turn-pawn-indicator">
+            <div class="glowing-pawn-dot"></div>
+          </div>
+          <span id="turn-phase-badge" style="display: none;">ROLL</span>
+        </div>
+
+        <div class="dice-station">
+          <div class="dice-3d-box" id="dice-3d-container" title="Click or Press Space to Roll">
+            <div id="dice-roll-badge" class="dice-roll-badge">
+              <span id="dice-roll-num" class="roll-number">6</span>
+            </div>
+          </div>
+
+          <button id="btn-roll-dice" class="cta-roll-btn">
+            <span class="btn-text">ROLL DICE</span>
+            <kbd class="btn-kbd">Space</kbd>
+          </button>
+
+          <div id="dice-status-tip" class="dice-subtip">
+            Press <kbd>Space</kbd> or click dice to roll
+          </div>
+        </div>
+
+        <!-- CHOOSE PAWN STATION (INTEGRATED) -->
+        <div class="pawn-selector-integrated" id="token-shortcut-panel">
+          <div class="hud-card-header" style="margin-bottom: 6px;">
+            <span class="card-caption">CHOOSE PAWN</span>
+            <span class="card-hint-keys">1 &nbsp;2 &nbsp;3 &nbsp;4</span>
+          </div>
+          <div class="pawn-cards-row">
+            <button class="pawn-card-btn" data-token-id="0" id="token-btn-0">
+              <span class="pawn-num">1</span>
+              <svg class="pawn-mini-icon" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="6" r="4"/>
+                <path d="M7 21c0-4 2-7 5-7s5 3 5 7H7z"/>
+              </svg>
+            </button>
+            <button class="pawn-card-btn" data-token-id="1" id="token-btn-1">
+              <span class="pawn-num">2</span>
+              <svg class="pawn-mini-icon" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="6" r="4"/>
+                <path d="M7 21c0-4 2-7 5-7s5 3 5 7H7z"/>
+              </svg>
+            </button>
+            <button class="pawn-card-btn" data-token-id="2" id="token-btn-2">
+              <span class="pawn-num">3</span>
+              <svg class="pawn-mini-icon" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="6" r="4"/>
+                <path d="M7 21c0-4 2-7 5-7s5 3 5 7H7z"/>
+              </svg>
+            </button>
+            <button class="pawn-card-btn" data-token-id="3" id="token-btn-3">
+              <span class="pawn-num">4</span>
+              <svg class="pawn-mini-icon" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="6" r="4"/>
+                <path d="M7 21c0-4 2-7 5-7s5 3 5 7H7z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVE PLAYERS ROSTER -->
+      <div class="hud-card players-card">
+        <div class="hud-card-header">
+          <span class="card-caption">PLAYERS</span>
+        </div>
+        <div id="game-players-list" class="players-roster">
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- CENTER ARENA (THE HERO) -->
+    <section class="arena-center">
+      <div class="board-tabletop" id="board-container">
+        
+        <!-- CORNER HOME YARDS (PHYSICAL TRAYS) -->
+        <div class="yard yard-green">
+          <div class="yard-inner">
+            <div class="yard-slot" data-slot="green-0"><span class="slot-num">1</span></div>
+            <div class="yard-slot" data-slot="green-1"><span class="slot-num">2</span></div>
+            <div class="yard-slot" data-slot="green-2"><span class="slot-num">3</span></div>
+            <div class="yard-slot" data-slot="green-3"><span class="slot-num">4</span></div>
+          </div>
+        </div>
+
+        <div class="yard yard-red">
+          <div class="yard-inner">
+            <div class="yard-slot" data-slot="red-0"><span class="slot-num">1</span></div>
+            <div class="yard-slot" data-slot="red-1"><span class="slot-num">2</span></div>
+            <div class="yard-slot" data-slot="red-2"><span class="slot-num">3</span></div>
+            <div class="yard-slot" data-slot="red-3"><span class="slot-num">4</span></div>
+          </div>
+        </div>
+
+        <div class="yard yard-yellow">
+          <div class="yard-inner">
+            <div class="yard-slot" data-slot="yellow-0"><span class="slot-num">1</span></div>
+            <div class="yard-slot" data-slot="yellow-1"><span class="slot-num">2</span></div>
+            <div class="yard-slot" data-slot="yellow-2"><span class="slot-num">3</span></div>
+            <div class="yard-slot" data-slot="yellow-3"><span class="slot-num">4</span></div>
+          </div>
+        </div>
+
+        <div class="yard yard-blue">
+          <div class="yard-inner">
+            <div class="yard-slot" data-slot="blue-0"><span class="slot-num">1</span></div>
+            <div class="yard-slot" data-slot="blue-1"><span class="slot-num">2</span></div>
+            <div class="yard-slot" data-slot="blue-2"><span class="slot-num">3</span></div>
+            <div class="yard-slot" data-slot="blue-3"><span class="slot-num">4</span></div>
+          </div>
+        </div>
+
+        <!-- CENTER VICTORY HUB -->
+        <div class="board-center">
+          <div class="triangle-up"></div>
+          <div class="triangle-right"></div>
+          <div class="triangle-down"></div>
+          <div class="triangle-left"></div>
+          
+          <div class="center-home-hub">
+            <div class="hub-pedestal">
+              <svg class="hub-crest-svg" viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Obsidian Medallion Core -->
+                <circle cx="50" cy="50" r="48" fill="url(#medallionObsidian)" stroke="url(#medallionOuterGold)" stroke-width="2.5"/>
+                
+                <!-- Engraved Radial Notches -->
+                <circle cx="50" cy="50" r="42" stroke="rgba(245, 158, 11, 0.45)" stroke-width="0.75" stroke-dasharray="2 3.5"/>
+                <circle cx="50" cy="50" r="38" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>
+                
+                <!-- Radiant 8-Point Compass Star Rays -->
+                <path d="M50 16 L53 38 L75 41 L55 49 L65 70 L50 56 L35 70 L45 49 L25 41 L47 38 Z" fill="url(#medallionRays)" opacity="0.4"/>
+                
+                <!-- Royal Crest Crown -->
+                <!-- Circlet Band -->
+                <path d="M28 64 C28 62, 72 62, 72 64 L70 69 C70 70, 30 70, 30 69 Z" fill="url(#crestBandGold)" stroke="#92400e" stroke-width="0.6"/>
+                
+                <!-- 4 Faction Gemstones set in the Crown Base -->
+                <circle cx="35" cy="65.5" r="1.8" fill="#10b981" filter="drop-shadow(0 0 2px #10b981)"/>
+                <circle cx="45" cy="65.5" r="1.8" fill="#f43f5e" filter="drop-shadow(0 0 2px #f43f5e)"/>
+                <circle cx="55" cy="65.5" r="1.8" fill="#fbbf24" filter="drop-shadow(0 0 2px #fbbf24)"/>
+                <circle cx="65" cy="65.5" r="1.8" fill="#38bdf8" filter="drop-shadow(0 0 2px #38bdf8)"/>
+
+                <!-- Crown Body with Sculpted Arches -->
+                <path d="M29 62 C31 52, 33 42, 33 39 C36 46, 42 51, 42 51 C45 41, 50 28, 50 28 C50 28, 55 41, 58 51 C58 51, 64 46, 67 39 C67 42, 69 52, 71 62 C60 60, 40 60, 29 62 Z" 
+                      fill="url(#crestCrownGold)" stroke="#b45309" stroke-width="0.8"/>
+                
+                <!-- Finial Spheres (Pearls) -->
+                <circle cx="33" cy="38" r="2.2" fill="#fef08a" stroke="#d97706" stroke-width="0.5"/>
+                <circle cx="42" cy="50" r="1.8" fill="#fef08a" stroke="#d97706" stroke-width="0.5"/>
+                <circle cx="50" cy="27" r="3.2" fill="#fff" stroke="#f59e0b" stroke-width="0.8" filter="drop-shadow(0 0 4px #fbbf24)"/>
+                <circle cx="58" cy="50" r="1.8" fill="#fef08a" stroke="#d97706" stroke-width="0.5"/>
+                <circle cx="67" cy="38" r="2.2" fill="#fef08a" stroke="#d97706" stroke-width="0.5"/>
+
+                <!-- Radiant Apex Star -->
+                <path d="M50 18 L51.5 24 L56 25 L51.5 26 L50 32 L48.5 26 L44 25 L48.5 24 Z" fill="#ffffff" filter="drop-shadow(0 0 3px #ffffff)"/>
+
+                <defs>
+                  <radialGradient id="medallionObsidian" cx="45%" cy="40%" r="55%">
+                    <stop stop-color="#1e293b"/>
+                    <stop offset="0.75" stop-color="#090d16"/>
+                    <stop offset="1" stop-color="#030712"/>
+                  </radialGradient>
+                  <linearGradient id="medallionOuterGold" x1="10" y1="10" x2="90" y2="90" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#fef08a"/>
+                    <stop offset="0.3" stop-color="#f59e0b"/>
+                    <stop offset="0.7" stop-color="#b45309"/>
+                    <stop offset="1" stop-color="#fde047"/>
+                  </linearGradient>
+                  <radialGradient id="medallionRays" cx="50%" cy="50%" r="40%">
+                    <stop stop-color="#facc15" stop-opacity="0.6"/>
+                    <stop offset="1" stop-color="#f59e0b" stop-opacity="0"/>
+                  </radialGradient>
+                  <linearGradient id="crestCrownGold" x1="28" y1="26" x2="72" y2="65" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#fffbeb"/>
+                    <stop offset="0.25" stop-color="#fde047"/>
+                    <stop offset="0.6" stop-color="#f59e0b"/>
+                    <stop offset="1" stop-color="#92400e"/>
+                  </linearGradient>
+                  <linearGradient id="crestBandGold" x1="28" y1="62" x2="72" y2="70" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#fef08a"/>
+                    <stop offset="0.5" stop-color="#d97706"/>
+                    <stop offset="1" stop-color="#78350f"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLAYABLE ROAD GRID -->
+        <div class="ludo-grid" id="ludo-grid">
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RIGHT SOCIAL STATION (COLLAPSIBLE) -->
+    <aside class="hud-station hud-right" id="hud-right">
+      
+      <div class="hud-card social-card">
+        <div class="hud-card-header social-header">
+          <div class="social-title-box">
+            <svg class="social-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span class="card-caption">CHAT & ACTIVITY</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="chat-tabs">
+              <button class="chat-tab-btn active" data-tab="all" id="tab-chat-all">All</button>
+              <button class="chat-tab-btn" data-tab="game" id="tab-chat-game">Game</button>
+            </div>
+            <button id="btn-mobile-rules" class="hud-mini-btn" title="How to Play" style="margin-right: 4px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+            <button id="btn-collapse-chat" class="hud-mini-btn" title="Collapse Panel">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="chat-messages-wrap" id="chat-messages">
+        </div>
+
+        <div class="chat-input-bar">
+          <input type="text" id="chat-input" class="chat-text-input" placeholder="Type a message..." maxlength="60" autocomplete="off">
+          <button id="btn-chat-send" class="chat-send-btn" title="Send message">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </aside>
+
+  </main>
+
+    <!-- WINNER OVERLAY MODAL -->
+  <div id="winner-modal" class="arena-modal-backdrop" style="display: none;">
+    <div class="arena-modal-card winner-card">
+      <div class="winner-trophy-burst">
+        <svg width="84" height="84" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="30" fill="rgba(245, 158, 11, 0.12)" filter="drop-shadow(0 0 12px rgba(245, 158, 11, 0.4))"/>
+          <path d="M16 18C12 18 10 22 10 27C10 33 15 36 21 37" stroke="url(#trophyG)" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M48 18C52 18 54 22 54 27C54 33 49 36 43 37" stroke="url(#trophyG)" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M19 14H45V30C45 37.18 39.18 43 32 43C24.82 43 19 37.18 19 30V14Z" fill="url(#trophyG)" stroke="#d97706" stroke-width="1.5"/>
+          <path d="M28 43H36V50H28V43Z" fill="url(#trophyG)"/>
+          <path d="M22 50H42V54H22V50Z" fill="url(#trophyG)" stroke="#b45309" stroke-width="1"/>
+          <polygon points="32,21 34,26 39,26 35,29 36.5,34 32,31 27.5,34 29,29 25,26 30,26" fill="#ffffff" opacity="0.9"/>
+          <defs>
+            <linearGradient id="trophyG" x1="16" y1="14" x2="48" y2="54" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fef08a"/>
+              <stop offset="0.4" stop-color="#f59e0b"/>
+              <stop offset="1" stop-color="#92400e"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <h2 id="winner-title" class="winner-heading">VICTORY ACHIEVED</h2>
+      <p id="winner-desc" class="winner-subheading">All four pawns have conquered the center sanctuary!</p>
+
+      <!-- POST GAME MATCH STATS TABLE -->
+      <div class="match-stats-block">
+        <div class="stats-table-header">MATCH STATISTICS</div>
+        <table id="winner-stats-table" class="winner-stats-table">
+          <thead>
+            <tr>
+              <th style="text-align: left;">Player</th>
+              <th>Rolls</th>
+              <th>Lucky 6s</th>
+              <th>Captures</th>
+              <th>Home</th>
+            </tr>
+          </thead>
+          <tbody id="winner-stats-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="modal-buttons-row" style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
+        <button id="btn-rematch" class="btn-primary" style="margin-top: 6px;">
+          <span>⚡ REMATCH (PLAY AGAIN)</span>
+        </button>
+        <button id="btn-exit-lobby" class="btn-secondary" style="padding: 10px 16px; background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #cbd5e1; font-weight: 700; cursor: pointer;">
+          Exit to Lobby
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW TO PLAY MODAL -->
+  <div id="rules-modal" class="arena-modal-backdrop" style="display: none;">
+    <div class="arena-modal-card rules-card">
+      <div class="rules-header">
+        <h3 style="font-size: 18px; font-weight: 700; color: #fff;">Ludo Rules &amp; Shortcuts</h3>
+        <button id="btn-close-rules" class="hud-icon-btn" style="border: none; font-size: 20px; cursor: pointer;">&times;</button>
+      </div>
+      <div class="rules-list" style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+        <div class="rule-item">
+          <strong style="color: #60a5fa;">Roll a 6:</strong> Moves a pawn from your yard onto the starting tile, and grants an extra roll.
+        </div>
+        <div class="rule-item">
+          <strong style="color: #f87171;">Captures:</strong> Landing on an opponent sends their pawn back to base and awards you a bonus turn.
+        </div>
+        <div class="rule-item">
+          <strong style="color: #facc15;">Safe Squares:</strong> Tiles marked with stars are completely safe from captures.
+        </div>
+        <div class="rule-item">
+          <strong style="color: #4ade80;">Victory:</strong> First player to guide all four pawns home wins the arena!
+        </div>
+        <div class="rule-item">
+          <strong style="color: #c084fc;">Shortcuts:</strong> Press <kbd style="background:#334155; padding:2px 6px; border-radius:4px; color:#fff;">Space</kbd> to roll dice, and <kbd style="background:#334155; padding:2px 6px; border-radius:4px; color:#fff;">1</kbd>, <kbd style="background:#334155; padding:2px 6px; border-radius:4px; color:#fff;">2</kbd>, <kbd style="background:#334155; padding:2px 6px; border-radius:4px; color:#fff;">3</kbd>, <kbd style="background:#334155; padding:2px 6px; border-radius:4px; color:#fff;">4</kbd> to choose pawns.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/sounds.js"></script>
+  <script src="/js/dice3d.js"></script>
+  <script src="/js/renderer.js"></script>
+  <script src="/js/voice.js"></script>
+  <script src="/js/client.js"></script>
+  <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
+</body>
+</html>
