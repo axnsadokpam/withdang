@@ -3,17 +3,11 @@ class ThreeDiceController {
     this.container = containerElement;
     this.btn = rollBtnElement;
     this.isRolling = false;
+    this.isCharging = false;
+    this.chargeRatio = 0;
     this.pendingCallback = null;
     this.rollTimeout = null;
 
-    // Correct 3D Euler rotations so each face points precisely at +Z (Camera)
-    // Three.js BoxGeometry material indices:
-    // [0] = +X (Face 3) -> Rotate Y by -PI/2 brings +X to +Z
-    // [1] = -X (Face 4) -> Rotate Y by +PI/2 brings -X to +Z
-    // [2] = +Y (Face 6) -> Rotate X by +PI/2 brings +Y to +Z
-    // [3] = -Y (Face 5) -> Rotate X by -PI/2 brings -Y to +Z
-    // [4] = +Z (Face 1) -> Rotate 0 brings +Z to +Z
-    // [5] = -Z (Face 2) -> Rotate Y by PI brings -Z to +Z
     this.faceRotations = {
       1: { x: 0, y: 0, z: 0 },
       2: { x: 0, y: Math.PI, z: 0 },
@@ -32,14 +26,12 @@ class ThreeDiceController {
     canvas.height = 256;
     const ctx = canvas.getContext("2d");
 
-    // Ivory/porcelain face with subtle warm gradient
     const bgGrad = ctx.createRadialGradient(128, 128, 20, 128, 128, 140);
     bgGrad.addColorStop(0, "#ffffff");
     bgGrad.addColorStop(1, "#f1e9ed");
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, 256, 256);
 
-    // Warm rose-gold filigree border
     ctx.lineWidth = 14;
     ctx.strokeStyle = "rgba(225, 29, 72, 0.35)";
     ctx.strokeRect(7, 7, 242, 242);
@@ -57,10 +49,9 @@ class ThreeDiceController {
     points.forEach(([x, y]) => {
       ctx.beginPath();
       ctx.arc(x, y, 22, 0, Math.PI * 2);
-      ctx.fillStyle = number === 1 ? "#e11d48" : "#1f1418"; // 1-pip is royal crimson!
+      ctx.fillStyle = number === 1 ? "#e11d48" : "#1f1418";
       ctx.fill();
 
-      // Specular highlight
       ctx.beginPath();
       ctx.arc(x - 5, y - 5, 7, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
@@ -116,7 +107,7 @@ class ThreeDiceController {
     this.diceMesh.rotation.set(this.currentRotation.x, this.currentRotation.y, this.currentRotation.z);
 
     this.container.addEventListener("mousemove", (e) => {
-      if (this.isRolling) return;
+      if (this.isRolling || this.isCharging) return;
       const rect = this.container.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width - 0.5) * 0.7;
       const ny = ((e.clientY - rect.top) / rect.height - 0.5) * 0.7;
@@ -137,6 +128,22 @@ class ThreeDiceController {
     this.animate();
   }
 
+  startCharging() {
+    this.isCharging = true;
+    this.chargeRatio = 0;
+    this.container.classList.add("charging");
+  }
+
+  updateCharge(ratio) {
+    this.chargeRatio = Math.min(ratio, 1.0);
+  }
+
+  stopCharging() {
+    this.isCharging = false;
+    this.chargeRatio = 0;
+    this.container.classList.remove("charging");
+  }
+
   animate() {
     requestAnimationFrame(() => this.animate());
 
@@ -145,9 +152,17 @@ class ThreeDiceController {
       this.diceMesh.rotation.y += this.spinVelocity.y;
       this.diceMesh.rotation.z += this.spinVelocity.z;
 
-      this.bouncePhase += 0.25;
-      const scale = 1.0 + Math.sin(this.bouncePhase) * 0.14;
+      this.bouncePhase += this.bounceSpeed;
+      const bounceAmp = 0.12 * this.currentPower;
+      const scale = 1.0 + Math.sin(this.bouncePhase) * bounceAmp;
       this.diceMesh.scale.set(scale, scale, scale);
+    } else if (this.isCharging) {
+      // Physical micro-tremble while charging
+      const jitter = (Math.random() - 0.5) * (0.04 + this.chargeRatio * 0.08);
+      this.diceMesh.rotation.x = this.targetRotation.x + jitter;
+      this.diceMesh.rotation.y = this.targetRotation.y + jitter;
+      const chargeLift = 1.0 + this.chargeRatio * 0.15;
+      this.diceMesh.scale.set(chargeLift, chargeLift, chargeLift);
     } else {
       this.diceMesh.rotation.x += (this.targetRotation.x - this.diceMesh.rotation.x) * 0.22;
       this.diceMesh.rotation.y += (this.targetRotation.y - this.diceMesh.rotation.y) * 0.22;
@@ -158,8 +173,7 @@ class ThreeDiceController {
     this.renderer.render(this.scene, this.camera);
   }
 
-  roll(finalValue, callback) {
-    // If already rolling, instantly resolve the previous callback so no state is dropped!
+  roll(finalValue, powerMultiplier = 1.0, callback) {
     if (this.rollTimeout) {
       clearTimeout(this.rollTimeout);
       this.rollTimeout = null;
@@ -170,20 +184,29 @@ class ThreeDiceController {
       cb();
     }
 
+    this.stopCharging();
     this.isRolling = true;
     this.pendingCallback = callback;
     if (this.btn) this.btn.disabled = true;
 
-    if (window.sounds) window.sounds.playDiceRoll();
+    const power = Math.max(0.8, Math.min(powerMultiplier, 2.2));
+    this.currentPower = power;
 
+    if (window.sounds) window.sounds.playDiceRoll(power);
+
+    // Spin velocity scales with physical throw power
+    const speedBase = 0.36 + power * 0.22;
     this.spinVelocity = {
-      x: 0.38 + Math.random() * 0.22,
-      y: 0.42 + Math.random() * 0.22,
-      z: 0.32 + Math.random() * 0.22
+      x: (speedBase + Math.random() * 0.15) * (Math.random() > 0.5 ? 1 : -1),
+      y: (speedBase + Math.random() * 0.18) * (Math.random() > 0.5 ? 1 : -1),
+      z: (speedBase * 0.8 + Math.random() * 0.12)
     };
     this.bouncePhase = 0;
+    this.bounceSpeed = 0.22 + power * 0.08;
 
-    // Snappy, energetic 480ms roll duration
+    // Dynamic duration: Quick flick = 400ms, Power throw = 700ms
+    const rollDuration = Math.round(380 + power * 150);
+
     this.rollTimeout = setTimeout(() => {
       this.isRolling = false;
       this.rollTimeout = null;
@@ -200,7 +223,7 @@ class ThreeDiceController {
       const cb = this.pendingCallback;
       this.pendingCallback = null;
       if (cb) cb(finalValue);
-    }, 480);
+    }, rollDuration);
   }
 
   showValue(val) {
@@ -209,6 +232,7 @@ class ThreeDiceController {
       this.rollTimeout = null;
     }
     this.isRolling = false;
+    this.stopCharging();
     const rot = this.faceRotations[val] || { x: 0, y: 0, z: 0 };
     this.targetRotation = { x: rot.x, y: rot.y, z: rot.z };
     this.currentRotation = { x: rot.x, y: rot.y, z: rot.z };

@@ -230,7 +230,84 @@ if (btnVoiceMute) {
   });
 }
 
-function triggerRoll() {
+
+// =========================================================
+// PRESSURE & VELOCITY-SENSITIVE DICE CONTROLLER
+// =========================================================
+const diceChargeBar = document.getElementById("dice-charge-bar");
+const diceChargeLabel = document.getElementById("dice-charge-label");
+const CIRCLE_CIRCUMFERENCE = 339.29; // 2 * pi * 54
+
+let chargeStartTime = null;
+let chargeRafId = null;
+let lastShakeTick = 0;
+
+function startDiceCharge() {
+  if (!currentGameState || isRollInFlight) return;
+  const isMyTurn = currentGameState.currentTurn === myPlayerColor;
+  if (!isMyTurn || currentGameState.phase !== "ROLL") return;
+  if (chargeStartTime) return; // already charging
+
+  chargeStartTime = Date.now();
+  dice3d.startCharging();
+  if (diceChargeLabel) {
+    diceChargeLabel.textContent = "CHARGING...";
+    diceChargeLabel.classList.add("visible");
+    diceChargeLabel.classList.remove("supercharged");
+  }
+
+  const loop = () => {
+    if (!chargeStartTime) return;
+    const elapsed = Date.now() - chargeStartTime;
+    const ratio = Math.min(elapsed / 1100, 1.0);
+    const offset = CIRCLE_CIRCUMFERENCE * (1 - ratio);
+
+    if (diceChargeBar) {
+      diceChargeBar.style.strokeDashoffset = offset;
+    }
+    dice3d.updateCharge(ratio);
+
+    // Audio rattle ticks
+    if (elapsed - lastShakeTick > Math.max(50, 140 - ratio * 90)) {
+      lastShakeTick = elapsed;
+      if (window.sounds) window.sounds.playDiceShake(ratio);
+    }
+
+    if (ratio >= 0.85 && diceChargeLabel) {
+      diceChargeLabel.textContent = "⚡ POWER SLAM!";
+      diceChargeLabel.classList.add("supercharged");
+    } else if (ratio >= 0.35 && diceChargeLabel) {
+      diceChargeLabel.textContent = "THROWING HARD";
+    }
+
+    chargeRafId = requestAnimationFrame(loop);
+  };
+
+  chargeRafId = requestAnimationFrame(loop);
+}
+
+function releaseDiceCharge() {
+  if (!chargeStartTime) return;
+  const elapsed = Date.now() - chargeStartTime;
+  chargeStartTime = null;
+  if (chargeRafId) {
+    cancelAnimationFrame(chargeRafId);
+    chargeRafId = null;
+  }
+
+  // Calculate power: 1.0 (tap) to 2.2 (full charge)
+  const power = elapsed < 180 ? 1.0 : Math.min(1.0 + (elapsed / 1100) * 1.2, 2.2);
+
+  // Reset UI gauge smoothly
+  if (diceChargeBar) diceChargeBar.style.strokeDashoffset = CIRCLE_CIRCUMFERENCE;
+  if (diceChargeLabel) {
+    diceChargeLabel.classList.remove("visible", "supercharged");
+  }
+
+  triggerRoll(power);
+}
+
+function triggerRoll(powerMultiplier = 1.0) {
   if (!currentGameState || isRollInFlight) return;
   const isMyTurn = currentGameState.currentTurn === myPlayerColor;
   if (!isMyTurn || currentGameState.phase !== "ROLL") return;
@@ -239,11 +316,43 @@ function triggerRoll() {
   btnRollDice.disabled = true;
   hideRollBadge();
   boardRenderer.clearPathPreview();
-  socket.emit("roll-dice");
+  socket.emit("roll-dice", { power: powerMultiplier });
 }
 
-btnRollDice.addEventListener("click", triggerRoll);
-dice3dContainer.addEventListener("click", triggerRoll);
+// Spacebar Hold & Release Listeners
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && !e.repeat && document.activeElement.tagName !== "INPUT") {
+    e.preventDefault();
+    startDiceCharge();
+  }
+});
+
+window.addEventListener("keyup", (e) => {
+  if (e.code === "Space" && document.activeElement.tagName !== "INPUT") {
+    e.preventDefault();
+    releaseDiceCharge();
+  }
+});
+
+// Pointer & Touch Listeners for Button & 3D Box
+[btnRollDice, dice3dContainer].forEach(el => {
+  if (!el) return;
+  el.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    startDiceCharge();
+  });
+  el.addEventListener("pointerup", (e) => {
+    e.preventDefault();
+    releaseDiceCharge();
+  });
+  el.addEventListener("pointerleave", () => {
+    if (chargeStartTime) releaseDiceCharge();
+  });
+  el.addEventListener("pointercancel", () => {
+    if (chargeStartTime) releaseDiceCharge();
+  });
+});
+
 
 function handleTokenClick(tokenId) {
   if (!currentGameState) return;
@@ -346,7 +455,7 @@ socket.on("game-updated", (data) => {
 
 socket.on("dice-rolled", (data) => {
   isRollInFlight = false;
-  dice3d.roll(data.roll, () => {
+  dice3d.roll(data.roll, data.power || 1.0, () => {
     currentGameState = data.gameState;
     currentValidMoves = data.validMoves || [];
 

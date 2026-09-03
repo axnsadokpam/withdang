@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Lounge with DANG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/board.css?v=dang10">
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/three.min.js"></script>
@@ -144,10 +147,24 @@
         </div>
 
         <div class="dice-station">
-          <div class="dice-3d-box" id="dice-3d-container" title="Click or Press Space to Roll">
-            <div id="dice-roll-badge" class="dice-roll-badge">
-              <span id="dice-roll-num" class="roll-number">6</span>
+          <div class="dice-station-wrapper">
+            <div class="dice-3d-box" id="dice-3d-container" title="Press & Hold Space / Touch to Charge & Throw!">
+              <svg class="dice-charge-ring-svg" viewBox="0 0 120 120">
+                <circle class="charge-ring-bg" cx="60" cy="60" r="54"/>
+                <circle id="dice-charge-bar" class="charge-ring-bar" cx="60" cy="60" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"/>
+                <defs>
+                  <linearGradient id="chargeGradientGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f59e0b"/>
+                    <stop offset="50%" stop-color="#f43f5e"/>
+                    <stop offset="100%" stop-color="#fbbf24"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div id="dice-roll-badge" class="dice-roll-badge">
+                <span id="dice-roll-num" class="roll-number">6</span>
+              </div>
             </div>
+            <div id="dice-charge-label" class="dice-charge-label">HOLD TO CHARGE</div>
           </div>
 
           <button id="btn-roll-dice" class="cta-roll-btn">

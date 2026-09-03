@@ -38,7 +38,29 @@ class SoundManager {
   /* --------------------------------------------------------- */
   /* REALISTIC TUMBLING DICE CLATTER                          */
   /* --------------------------------------------------------- */
-  playDiceRoll() {
+  
+  playDiceShake(intensity = 0.5) {
+    if (this.muted || !this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(220 + intensity * 260, now);
+      osc.frequency.exponentialRampToValueAtTime(120, now + 0.04);
+
+      gain.gain.setValueAtTime(0.12 * intensity, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.045);
+    } catch (e) {}
+  }
+
+  playDiceRoll(power = 1.0) {
     if (this.muted) return;
     this.init();
     if (!this.ctx) return;

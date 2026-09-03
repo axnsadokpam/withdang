@@ -47,6 +47,7 @@ function handleBotTurn(roomCode) {
     if (!rollRes.success) return;
 
     io.to(roomCode).emit('dice-rolled', {
+      power: 1.0 + Math.random() * 0.35,
       player: liveCurrent,
       roll: rollRes.roll,
       validMoves: rollRes.validMoves || [],
@@ -171,7 +172,8 @@ io.on('connection', (socket) => {
     }
   });
 
-    socket.on('roll-dice', () => {
+    socket.on('roll-dice', (payload = {}) => {
+    const power = (payload && payload.power) ? payload.power : 1.0;
     const game = rooms[socket.roomCode];
     if (!game) return;
 

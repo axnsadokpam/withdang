@@ -46,7 +46,7 @@ body.arena-body {
   background-image: 
     radial-gradient(ellipse at 50% 15%, rgba(244, 63, 94, 0.12) 0%, transparent 60%), radial-gradient(circle at 50% 45%, #463b42 0%, #352d33 55%, #262024 100%);
   color: #f1f5f9;
-  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Outfit', -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -1949,4 +1949,79 @@ button, .token, .cell {
   0% { transform: scale(0.9); opacity: 0.9; }
   50% { transform: scale(1.15); opacity: 0.4; }
   100% { transform: scale(0.9); opacity: 0.9; }
+}
+
+/* ========================================================= */
+/* PRESSURE-SENSITIVE PHYSICAL DICE CHARGE GAUGE             */
+/* ========================================================= */
+.dice-station-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dice-charge-ring-svg {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  pointer-events: none;
+  z-index: 15;
+  overflow: visible;
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4));
+  transform: rotate(-90deg);
+}
+
+.charge-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.05);
+  stroke-width: 4;
+}
+
+.charge-ring-bar {
+  fill: none;
+  stroke: url(#chargeGradientGold);
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.04s linear;
+}
+
+.dice-charge-label {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #fbbf24;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: all 0.18s ease-out;
+  text-transform: uppercase;
+}
+
+.dice-charge-label.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dice-charge-label.supercharged {
+  color: #f43f5e;
+  text-shadow: 0 0 8px rgba(244, 63, 94, 0.8);
+  animation: pulseSuper 0.3s infinite alternate ease-in-out;
+}
+
+@keyframes pulseSuper {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+.dice-3d-box.charging {
+  animation: diceTensionVibrate 0.06s infinite alternate linear;
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.45);
+}
+
+@keyframes diceTensionVibrate {
+  0% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+  100% { transform: translate(1px, -1px) rotate(0.5deg); }
 }
