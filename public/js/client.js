@@ -82,12 +82,27 @@ document.addEventListener('pointerdown', function unlockAudioOnce() {
 }, { once: true });
 const socket = io();
 
+
+// Validate active session
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get("room");
+
+if (roomParam) {
+  // If user navigated directly to /game.html?room=CODE, redirect to lobby to pick name and join properly
+  window.location.replace("/?room=" + encodeURIComponent(roomParam));
+  throw new Error("Redirecting to lobby to join table properly");
+}
+
 const roomCode = sessionStorage.getItem("ludo_room_code");
 const playerName = sessionStorage.getItem("ludo_player_name") || "Player";
 
-if (!roomCode) {
-  window.location.href = "/";
+if (!roomCode || roomCode === "null" || roomCode === "undefined" || roomCode.length !== 6) {
+  sessionStorage.removeItem("ludo_room_code");
+  sessionStorage.removeItem("ludo_game_state");
+  window.location.replace("/?error=notable");
+  throw new Error("No active table session found. Redirecting to lobby.");
 }
+
 
 const headerRoomCode = document.getElementById("header-room-code");
 const turnBanner = document.getElementById("turn-banner");
@@ -515,6 +530,14 @@ chatInput.addEventListener("keydown", (e) => {
 socket.on("player-joined", (data) => {
   updateGameView(data.gameState);
   addLogMessage(data.player.name + " joined the arena", "game");
+});
+
+
+socket.on("error-msg", (data) => {
+  sessionStorage.removeItem("ludo_room_code");
+  sessionStorage.removeItem("ludo_game_state");
+  alert(data.message || "Table expired or not found. Redirecting to lobby to start a new table.");
+  window.location.replace("/");
 });
 
 socket.on("game-updated", (data) => {
