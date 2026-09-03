@@ -82,7 +82,10 @@ function executeBotMove(roomCode, game, liveCurrent) {
   });
 
   if (!moveRes.gameOver) {
-    setTimeout(() => handleBotTurn(roomCode), 400);
+    const hopSteps = Math.max(1, Math.abs(moveRes.newStep - moveRes.prevStep));
+    const animDuration = (moveRes.prevStep === 0 ? 1 : hopSteps) * 140;
+    const nextDelay = animDuration + 450;
+    setTimeout(() => handleBotTurn(roomCode), nextDelay);
   }
 }
 
@@ -125,13 +128,13 @@ function handleBotTurn(roomCode) {
       });
 
       if (rollRes.turnPassed || rollRes.autoPass || rollRes.threeSixes) {
-        setTimeout(() => handleBotTurn(roomCode), 400);
+        setTimeout(() => handleBotTurn(roomCode), 700);
         return;
       }
 
       setTimeout(() => {
         executeBotMove(roomCode, game, liveCurrent);
-      }, 350);
+      }, 750);
     }
   }, 240);
 }
@@ -155,31 +158,51 @@ io.on('connection', (socket) => {
     });
   });
 
-    socket.on('join-room', ({ roomCode, playerName, playerColor }) => {
+  socket.on('join-room', ({ roomCode, playerName, playerColor }) => {
     const code = (roomCode || '').trim().toUpperCase();
     const game = rooms[code];
 
     if (!game) {
-      return socket.emit('error-msg', { message: 'Room not found.' });
+      return socket.emit('error-msg', { message: 'Room not found. Check code or create a table.' });
     }
 
-    // Try finding existing player by name, then by color, then by disconnected seat
-    let existing = game.players.find(p => p.name.toLowerCase() === (playerName || '').toLowerCase());
-    if (!existing && playerColor) {
+    // Try finding existing player by color, then by matching name
+    let existing = null;
+    if (playerColor) {
       existing = game.players.find(p => p.color === playerColor);
     }
+    if (!existing && playerName) {
+      const cleanName = playerName.trim().toLowerCase();
+      if (game.status === 'WAITING') {
+        // In WAITING, only match if the player is disconnected or already this socket
+        existing = game.players.find(p => p.id === socket.id || (!p.connected && p.name.toLowerCase() === cleanName));
+      } else {
+        existing = game.players.find(p => p.name.toLowerCase() === cleanName);
+      }
+    }
     if (!existing && game.status === 'PLAYING') {
-      existing = game.players.find(p => !p.connected || p.isAway);
+      // Reconnect to a disconnected/away seat if available
+      existing = game.players.find(p => (!p.connected || p.isAway) && !p.isBot);
     }
 
     if (existing) {
       game.reconnectPlayer(socket.id, existing.name);
+      existing.isAway = false;
+      existing.connected = true;
       socket.join(code);
       socket.roomCode = code;
       socket.playerName = existing.name;
 
       const pubState = game.getPublicState();
-      socket.emit('game-updated', { gameState: pubState });
+      socket.emit('room-joined', {
+        roomCode: code,
+        player: existing,
+        gameState: pubState
+      });
+      socket.emit('game-updated', {
+        gameState: pubState,
+        player: existing
+      });
       socket.to(code).emit('game-updated', {
         gameState: pubState,
         message: existing.name + ' reconnected'
@@ -187,7 +210,22 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const res = game.addPlayer(socket.id, playerName);
+    // If game is already running and no existing seat matched, reject
+    if (game.status !== 'WAITING') {
+      return socket.emit('error-msg', { message: 'Game already in progress.' });
+    }
+
+    // Disambiguate duplicate names in WAITING lobby
+    let chosenName = (playerName || '').trim() || ('Player ' + (game.players.length + 1));
+    if (game.players.some(p => p.name.toLowerCase() === chosenName.toLowerCase())) {
+      let counter = 2;
+      while (game.players.some(p => p.name.toLowerCase() === (chosenName + ' ' + counter).toLowerCase())) {
+        counter++;
+      }
+      chosenName = chosenName + ' ' + counter;
+    }
+
+    const res = game.addPlayer(socket.id, chosenName);
     if (!res.success) {
       return socket.emit('error-msg', { message: res.message });
     }
@@ -197,6 +235,12 @@ io.on('connection', (socket) => {
     socket.playerName = res.player.name;
 
     const pubState = game.getPublicState();
+    socket.emit('room-joined', {
+      roomCode: code,
+      player: res.player,
+      gameState: pubState
+    });
+
     io.to(code).emit('player-joined', {
       player: res.player,
       gameState: pubState
@@ -209,22 +253,23 @@ io.on('connection', (socket) => {
     }
   });
 
-
   socket.on('add-bot', () => {
     const game = rooms[socket.roomCode];
     if (!game) return;
-    const bot = game.addBot();
-    if (bot) {
+    // Fill remaining seats with bots so game can launch immediately
+    while (game.players.length < game.maxPlayers) {
+      const bot = game.addBot();
+      if (!bot) break;
       io.to(socket.roomCode).emit('player-joined', {
         player: bot,
         gameState: game.getPublicState()
       });
-      if (game.status === 'PLAYING') {
-        io.to(socket.roomCode).emit('game-started', {
-          gameState: game.getPublicState()
-        });
-        handleBotTurn(socket.roomCode);
-      }
+    }
+    if (game.status === 'PLAYING') {
+      io.to(socket.roomCode).emit('game-started', {
+        gameState: game.getPublicState()
+      });
+      handleBotTurn(socket.roomCode);
     }
   });
 
@@ -358,31 +403,56 @@ io.on('connection', (socket) => {
 
   
   socket.on('disconnect', () => {
-    if (!socket.roomCode) return;
-    const game = rooms[socket.roomCode];
+    const code = socket.roomCode;
+    if (!code) return;
+    socket.to(code).emit('voice-peer-left', { peerId: socket.id });
+
+    const game = rooms[code];
     if (!game) return;
 
+    // In WAITING lobby: remove player and clean up room if empty
+    if (game.status === 'WAITING') {
+      const removed = game.removePlayer(socket.id);
+      if (removed) {
+        if (game.players.length === 0) {
+          delete rooms[code];
+        } else {
+          io.to(code).emit('player-left', {
+            playerName: removed.name,
+            gameState: game.getPublicState()
+          });
+          io.to(code).emit('game-updated', {
+            gameState: game.getPublicState(),
+            message: removed.name + ' left the table'
+          });
+        }
+      }
+      return;
+    }
+
+    // In PLAYING game: mark as away/disconnected
     const player = game.players.find(p => p.id === socket.id);
     if (player) {
       player.isAway = true;
-      io.to(socket.roomCode).emit('player-status-changed', {
+      player.connected = false;
+      io.to(code).emit('player-status-changed', {
         player: player,
         status: 'away',
         gameState: game.getPublicState()
       });
 
-      // If it's this player's turn, auto-play for them smoothly after 3s
+      // If it's this player's turn, auto-play only if they remain disconnected after 4s
       if (game.status === 'PLAYING') {
         const current = game.getCurrentPlayer();
         if (current && current.id === socket.id) {
           setTimeout(() => {
-            if (!rooms[socket.roomCode]) return;
+            if (!rooms[code]) return;
             const liveCurrent = game.getCurrentPlayer();
-            if (liveCurrent && liveCurrent.id === socket.id) {
-              // Trigger auto-pilot roll
+            // Verify player hasn't reconnected with a new socket ID
+            if (liveCurrent && liveCurrent.id === socket.id && (liveCurrent.isAway || !liveCurrent.connected)) {
               const rollRes = game.rollDice(socket.id);
               if (rollRes.success) {
-                io.to(socket.roomCode).emit('dice-rolled', {
+                io.to(code).emit('dice-rolled', {
                   player: liveCurrent,
                   roll: rollRes.roll,
                   validMoves: rollRes.validMoves,
@@ -395,7 +465,7 @@ io.on('connection', (socket) => {
                   setTimeout(() => {
                     const moveRes = game.moveToken(socket.id, rollRes.validMoves[0]);
                     if (moveRes.success) {
-                      io.to(socket.roomCode).emit('token-moved', {
+                      io.to(code).emit('token-moved', {
                         player: liveCurrent,
                         tokenId: moveRes.tokenId,
                         prevStep: moveRes.prevStep,
@@ -408,44 +478,27 @@ io.on('connection', (socket) => {
                         winner: moveRes.winner,
                         gameState: game.getPublicState()
                       });
-                      handleBotTurn(socket.roomCode);
+                      handleBotTurn(code);
                     }
                   }, 800);
                 } else {
-                  handleBotTurn(socket.roomCode);
+                  handleBotTurn(code);
                 }
               }
             }
-          }, 2500);
+          }, 4000);
         }
       }
     }
-  });
 
-  // old disconnect
-  socket.on('_unused_disconnect', () => {
-    const code = socket.roomCode;
-    if (code) {
-      socket.to(code).emit('voice-peer-left', { peerId: socket.id });
-    }
-    const game = rooms[code];
-    if (!game) return;
-
-    const player = game.removePlayer(socket.id);
-    if (player) {
-      io.to(code).emit('player-disconnected', {
-        playerName: player.name,
-        gameState: game.getPublicState()
-      });
-    }
-
-    const active = game.players.some(p => p.connected);
-    if (!active) {
+    // Auto cleanup abandoned rooms if all human players are disconnected for 10 minutes
+    const hasActiveHumans = game.players.some(p => p.connected && !p.isBot);
+    if (!hasActiveHumans) {
       setTimeout(() => {
-        if (rooms[code] && !rooms[code].players.some(p => p.connected)) {
+        if (rooms[code] && !rooms[code].players.some(p => p.connected && !p.isBot)) {
           delete rooms[code];
         }
-      }, 15 * 60 * 1000);
+      }, 10 * 60 * 1000);
     }
   });
 });
@@ -500,10 +553,12 @@ setInterval(() => {
               gameState: game.getPublicState()
             });
 
-            handleBotTurn(roomCode);
+            const hopSteps = Math.max(1, Math.abs(moveRes.newStep - moveRes.prevStep));
+            const animDuration = (moveRes.prevStep === 0 ? 1 : hopSteps) * 140;
+            setTimeout(() => handleBotTurn(roomCode), animDuration + 450);
           }, 1000);
         } else {
-          handleBotTurn(roomCode);
+          setTimeout(() => handleBotTurn(roomCode), 700);
         }
       } else if (game.phase === 'MOVE') {
         const valid = game.getValidMoves(current.color, game.diceValue);
@@ -525,7 +580,9 @@ setInterval(() => {
             gameState: game.getPublicState()
           });
 
-          handleBotTurn(roomCode);
+          const hopSteps = Math.max(1, Math.abs(moveRes.newStep - moveRes.prevStep));
+          const animDuration = (moveRes.prevStep === 0 ? 1 : hopSteps) * 140;
+          setTimeout(() => handleBotTurn(roomCode), animDuration + 450);
         }
       }
     }

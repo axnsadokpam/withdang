@@ -92,6 +92,7 @@ class LudoGame {
     if (player) {
       player.id = socketId;
       player.connected = true;
+      player.isAway = false;
       return player;
     }
     return null;
@@ -288,7 +289,7 @@ class LudoGame {
       };
     }
 
-    const bonus = this.diceValue === 6 || captureOccurred;
+    const bonus = this.diceValue === 6 || captureOccurred || token.step === 57;
     const rolled = this.diceValue;
     this.phase = 'ROLL';
     this.diceValue = null;
@@ -332,6 +333,7 @@ class LudoGame {
     };
     this.players.push(bot);
     if (this.players.length === this.maxPlayers) {
+      this.players.forEach(p => { p.tokens = this.tokens[p.color]; });
       this.status = 'PLAYING';
       this.currentTurnIndex = 0;
       this.phase = 'ROLL';
@@ -408,7 +410,9 @@ class LudoGame {
       blue: [{ id: 0, step: 0 }, { id: 1, step: 0 }, { id: 2, step: 0 }, { id: 3, step: 0 }],
       red: [{ id: 0, step: 0 }, { id: 1, step: 0 }, { id: 2, step: 0 }, { id: 3, step: 0 }]
     };
+    this.players.forEach(p => { p.tokens = this.tokens[p.color]; });
     this.status = 'PLAYING';
+    this.currentTurnIndex = 0;
     this.phase = 'ROLL';
     this.consecutiveSixes = 0;
     this.diceValue = null;
@@ -442,6 +446,8 @@ class LudoGame {
       currentTurn: this.getCurrentPlayer() ? this.getCurrentPlayer().color : null,
       currentTurnPlayer: this.getCurrentPlayer(),
       diceValue: this.diceValue,
+      lastRoll: this.diceValue,
+      validMoves: (this.phase === 'MOVE' && this.diceValue && this.getCurrentPlayer()) ? this.getValidMoves(this.getCurrentPlayer().color, this.diceValue) : [],
       phase: this.phase,
       tokens: this.tokens,
       winner: this.winner,

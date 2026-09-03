@@ -199,13 +199,15 @@ class BoardRenderer {
   // Intelligent Path Preview
   previewPath(gameState, tokenId, roll, myPlayerColor) {
     this.clearPathPreview();
-    if (!gameState || !roll || tokenId === undefined) return;
+    const effectiveRoll = roll || (gameState && (gameState.lastRoll || gameState.diceValue));
+    if (!gameState || !effectiveRoll || tokenId === undefined) return;
 
-    const player = gameState.players.find(p => p.color === myPlayerColor);
-    if (!player || !player.tokens[tokenId]) return;
+    const player = gameState.players ? gameState.players.find(p => p.color === myPlayerColor) : null;
+    const myTokens = (player && player.tokens) ? player.tokens : (gameState.tokens && gameState.tokens[myPlayerColor]);
+    if (!myTokens || !myTokens[tokenId]) return;
 
-    const token = player.tokens[tokenId];
-    const pathCoords = this.calculatePath(myPlayerColor, token.step, roll, tokenId);
+    const token = myTokens[tokenId];
+    const pathCoords = this.calculatePath(myPlayerColor, token.step, effectiveRoll, tokenId);
     if (!pathCoords.length) return;
 
     const destCoords = pathCoords[pathCoords.length - 1];
@@ -242,7 +244,8 @@ class BoardRenderer {
 
         gameState.players.forEach(p => {
           if (p.color !== myPlayerColor) {
-            p.tokens.forEach(t => {
+            const oppTokens = p.tokens || (gameState.tokens && gameState.tokens[p.color]) || [];
+            oppTokens.forEach(t => {
               if (t.step > 0 && t.step <= 51) {
                 const [er, ec] = this.getCoordinates(p.color, t.step, 0);
                 if (er === destR && ec === destC) {
@@ -296,6 +299,10 @@ class BoardRenderer {
     }
   }
 
+  animateTokenHopSequence(playerColor, tokenIdx, fromStep, toStep, onComplete) {
+    return this.animateHop(playerColor, tokenIdx, fromStep, toStep, onComplete);
+  }
+
   // Step-by-step hop animation
   animateHop(playerColor, tokenIdx, fromStep, toStep, onComplete) {
     const tokenKey = playerColor + "-" + tokenIdx;
@@ -338,7 +345,11 @@ class BoardRenderer {
       tokenEl.style.left = percent.left + "%";
 
       if (window.sounds) {
-        window.sounds.playHop(currentHopIndex);
+        if (typeof window.sounds.playHop === "function") {
+          window.sounds.playHop(currentHopIndex);
+        } else if (typeof window.sounds.playHopStep === "function") {
+          window.sounds.playHopStep(currentHopIndex + 1);
+        }
       }
 
       currentHopIndex++;
@@ -411,7 +422,9 @@ class BoardRenderer {
           tokenEl.dataset.index = idx;
           tokenEl.innerHTML = '<div class="token-inner"><div class="token-core"></div><span class="token-num">' + (idx + 1) + '</span></div>';
 
-          tokenEl.addEventListener("click", () => {
+          tokenEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (color !== this.lastMyPlayerColor) return;
             if (this.onTokenClick) {
               this.onTokenClick(idx);
             }
@@ -419,8 +432,13 @@ class BoardRenderer {
 
           // Intelligent hover projection
           tokenEl.addEventListener("mouseenter", () => {
-            if (color === myPlayerColor && isMyTurn && isMovePhase && validMoves && validMoves.includes(idx)) {
-              this.previewPath(gameState, idx, gameState.lastRoll, myPlayerColor);
+            if (color === this.lastMyPlayerColor && this.lastGameState) {
+              const gs = this.lastGameState;
+              const isMyTurn = gs.currentTurn === this.lastMyPlayerColor;
+              const isMovePhase = gs.phase === "MOVE";
+              if (isMyTurn && isMovePhase && this.lastValidMoves && this.lastValidMoves.includes(idx)) {
+                this.previewPath(gs, idx, gs.lastRoll || gs.diceValue, this.lastMyPlayerColor);
+              }
             }
           });
 
@@ -490,4 +508,90 @@ class BoardRenderer {
       }
     });
   }
+
+  triggerCaptureShockwave(r, c) {
+    if (r === undefined || c === undefined) return;
+    const ring = document.createElement("div");
+    ring.className = "capture-shockwave-ring";
+    const percent = this.coordsToPercent(r, c);
+    ring.style.top = percent.top + "%";
+    ring.style.left = percent.left + "%";
+    this.grid.appendChild(ring);
+    setTimeout(() => {
+      if (ring && ring.parentNode) ring.remove();
+    }, 850);
+  }
+
+  triggerVictoryConfetti() {
+    this.clearConfetti();
+    const canvas = document.getElementById("confetti-canvas");
+    if (!canvas) return;
+
+    canvas.style.display = "block";
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const colors = ["#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#ec4899", "#8b5cf6", "#fde047"];
+    const particles = [];
+    for (let i = 0; i < 140; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * -canvas.height * 0.5,
+        w: 6 + Math.random() * 8,
+        h: 4 + Math.random() * 6,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        vy: 2.5 + Math.random() * 4.5,
+        vx: (Math.random() - 0.5) * 3,
+        rot: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 8
+      });
+    }
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let activeCount = 0;
+      particles.forEach(p => {
+        p.y += p.vy;
+        p.x += p.vx;
+        p.rot += p.rotSpeed;
+        if (p.y < canvas.height + 20) {
+          activeCount++;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rot * Math.PI) / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        }
+      });
+
+      if (activeCount > 0 && this.confettiActive) {
+        this.confettiRafId = requestAnimationFrame(animate);
+      } else {
+        this.clearConfetti();
+      }
+    };
+
+    this.confettiActive = true;
+    this.confettiRafId = requestAnimationFrame(animate);
+  }
+
+  clearConfetti() {
+    this.confettiActive = false;
+    if (this.confettiRafId) {
+      cancelAnimationFrame(this.confettiRafId);
+      this.confettiRafId = null;
+    }
+    const canvas = document.getElementById("confetti-canvas");
+    if (canvas) {
+      canvas.style.display = "none";
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
 }
+
+window.BoardRenderer = BoardRenderer;
+

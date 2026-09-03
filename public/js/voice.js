@@ -182,6 +182,14 @@ class VoiceChatController {
         this.audioElements[peerId] = audio;
       }
       audio.srcObject = event.streams[0];
+      try {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.warn('[Voice] Audio autoplay waiting on user interaction:', err);
+          });
+        }
+      } catch (e) {}
     };
 
     pc.onconnectionstatechange = () => {

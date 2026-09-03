@@ -75,8 +75,13 @@ if (savedName) {
   if (joinNameInput) joinNameInput.value = savedName;
 }
 
-// Check URL params for invite link (?room=CODE)
+// Check URL params for invite link (?room=CODE) or errors
 const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get("error") === "notable") {
+  setTimeout(() => {
+    showError("Table session expired or not found. Please start a new table or enter an invite code.");
+  }, 100);
+}
 const roomParam = urlParams.get("room");
 if (roomParam) {
   const code = roomParam.trim().toUpperCase();
@@ -144,18 +149,37 @@ btnJoinRoom.addEventListener("click", () => {
 });
 
 // Copy Invite Link or Code
-btnCopyCode.addEventListener("click", () => {
-  const inviteUrl = window.location.origin + "/?room=" + currentRoomCode;
-  navigator.clipboard.writeText(inviteUrl).then(() => {
+function fallbackCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
     btnCopyCode.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Link Copied!';
     setTimeout(() => {
       btnCopyCode.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Link';
     }, 2000);
-  }).catch(() => {
-    navigator.clipboard.writeText(currentRoomCode);
-    btnCopyCode.textContent = "Code Copied!";
-    setTimeout(() => { btnCopyCode.textContent = "Copy Code"; }, 2000);
-  });
+  } catch (e) {
+    prompt("Copy invite link:", text);
+  }
+  document.body.removeChild(ta);
+}
+
+btnCopyCode.addEventListener("click", () => {
+  const inviteUrl = window.location.origin + "/?room=" + currentRoomCode;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      btnCopyCode.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Link Copied!';
+      setTimeout(() => {
+        btnCopyCode.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Link';
+      }, 2000);
+    }).catch(() => fallbackCopy(inviteUrl));
+  } else {
+    fallbackCopy(inviteUrl);
+  }
 });
 
 if (btnStartBots) {
@@ -170,24 +194,41 @@ socket.on("room-created", (data) => {
   sessionStorage.setItem("ludo_room_code", data.roomCode);
   sessionStorage.setItem("ludo_player_name", data.player.name);
   sessionStorage.setItem("ludo_player_color", data.player.color);
+  localStorage.setItem("ludo_room_code", data.roomCode);
+  localStorage.setItem("ludo_player_name", data.player.name);
+  localStorage.setItem("ludo_player_color", data.player.color);
+  showLobby(data.gameState);
+});
+
+socket.on("room-joined", (data) => {
+  currentRoomCode = data.roomCode;
+  sessionStorage.setItem("ludo_room_code", data.roomCode);
+  localStorage.setItem("ludo_room_code", data.roomCode);
+  if (data.player) {
+    sessionStorage.setItem("ludo_player_name", data.player.name);
+    sessionStorage.setItem("ludo_player_color", data.player.color);
+    localStorage.setItem("ludo_player_name", data.player.name);
+    localStorage.setItem("ludo_player_color", data.player.color);
+  }
   showLobby(data.gameState);
 });
 
 socket.on("player-joined", (data) => {
   currentRoomCode = data.gameState.roomCode;
   sessionStorage.setItem("ludo_room_code", data.gameState.roomCode);
-  if (data.player) {
-    // If this socket was the one who joined, persist their assigned identity
-    const savedName = (joinNameInput.value || hostNameInput.value || "").trim().toLowerCase();
-    if (data.player.name.toLowerCase() === savedName) {
-      sessionStorage.setItem("ludo_player_name", data.player.name);
-      sessionStorage.setItem("ludo_player_color", data.player.color);
-    }
-  }
+  localStorage.setItem("ludo_room_code", data.gameState.roomCode);
   showLobby(data.gameState);
 });
 
-socket.on("game-updated", (data) => { showLobby(data.gameState); });
+socket.on("game-updated", (data) => {
+  if (data.player) {
+    sessionStorage.setItem("ludo_player_name", data.player.name);
+    sessionStorage.setItem("ludo_player_color", data.player.color);
+    localStorage.setItem("ludo_player_name", data.player.name);
+    localStorage.setItem("ludo_player_color", data.player.color);
+  }
+  showLobby(data.gameState);
+});
 
 socket.on("game-started", (data) => {
   sessionStorage.setItem("ludo_game_state", JSON.stringify(data.gameState));
@@ -213,7 +254,7 @@ function showLobby(gameState) {
   });
 
   if (gameState.status === "PLAYING") {
-    setTimeout(() => { window.location.href = "/game.html"; }, 1000);
+    setTimeout(() => { window.location.href = "/game.html"; }, 800);
   }
 }
 

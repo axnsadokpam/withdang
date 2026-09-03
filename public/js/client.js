@@ -15,20 +15,42 @@ function triggerHaptic(type) {
 
 // =========================================================
 // CLICK-TO-COPY ROOM CODE IN HEADER
-// =========================================================
+function fallbackCopyBadge(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    if (roomBadgeEl) {
+      const origHtml = roomBadgeEl.innerHTML;
+      roomBadgeEl.innerHTML = '<span class="badge-label" style="display:inline !important;">✓</span> <strong class="badge-code" style="color:#10b981;">Copied!</strong>';
+      addLogMessage("Invite link copied to clipboard!", "game");
+      setTimeout(() => { roomBadgeEl.innerHTML = origHtml; }, 2200);
+    }
+  } catch (e) {
+    prompt("Copy invite link:", text);
+  }
+  document.body.removeChild(ta);
+}
+
 const roomBadgeEl = document.querySelector(".room-badge");
 if (roomBadgeEl) {
   roomBadgeEl.title = "Click to copy invite link";
   roomBadgeEl.addEventListener("click", () => {
     const inviteUrl = window.location.origin + "/?room=" + roomCode;
     triggerHaptic('click');
-    if (navigator.clipboard) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(inviteUrl).then(() => {
         const origHtml = roomBadgeEl.innerHTML;
         roomBadgeEl.innerHTML = '<span class="badge-label" style="display:inline !important;">✓</span> <strong class="badge-code" style="color:#10b981;">Copied!</strong>';
         addLogMessage("Invite link copied to clipboard!", "game");
         setTimeout(() => { roomBadgeEl.innerHTML = origHtml; }, 2200);
-      }).catch(() => {});
+      }).catch(() => fallbackCopyBadge(inviteUrl));
+    } else {
+      fallbackCopyBadge(inviteUrl);
     }
   });
 }
@@ -93,15 +115,22 @@ if (roomParam) {
   throw new Error("Redirecting to lobby to join table properly");
 }
 
-const roomCode = sessionStorage.getItem("ludo_room_code");
-const playerName = sessionStorage.getItem("ludo_player_name") || "Player";
+const roomCode = sessionStorage.getItem("ludo_room_code") || localStorage.getItem("ludo_room_code");
+const playerName = sessionStorage.getItem("ludo_player_name") || localStorage.getItem("ludo_player_name") || "Player";
+const playerColor = sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color");
 
 if (!roomCode || roomCode === "null" || roomCode === "undefined" || roomCode.length !== 6) {
   sessionStorage.removeItem("ludo_room_code");
   sessionStorage.removeItem("ludo_game_state");
+  localStorage.removeItem("ludo_room_code");
+  localStorage.removeItem("ludo_game_state");
   window.location.replace("/?error=notable");
   throw new Error("No active table session found. Redirecting to lobby.");
 }
+
+sessionStorage.setItem("ludo_room_code", roomCode);
+sessionStorage.setItem("ludo_player_name", playerName);
+if (playerColor) sessionStorage.setItem("ludo_player_color", playerColor);
 
 
 const headerRoomCode = document.getElementById("header-room-code");
@@ -187,10 +216,17 @@ if (rulesModal) {
 
 if (btnFullscreen) {
   btnFullscreen.addEventListener("click", () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+    const isFull = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+    if (!isFull) {
+      const rfs = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || document.documentElement.mozRequestFullScreen;
+      if (rfs) {
+        try { rfs.call(document.documentElement); } catch (e) {}
+      }
     } else {
-      document.exitFullscreen().catch(() => {});
+      const efs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen;
+      if (efs) {
+        try { efs.call(document); } catch (e) {}
+      }
     }
   });
 }
@@ -261,7 +297,7 @@ if (cachedState) {
 socket.emit("join-room", {
   roomCode: roomCode,
   playerName: playerName,
-  playerColor: sessionStorage.getItem("ludo_player_color")
+  playerColor: playerColor || sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color")
 });
 
 
@@ -343,6 +379,7 @@ let chargeRafId = null;
 let lastShakeTick = 0;
 
 function startDiceCharge() {
+  if (winnerModal && winnerModal.style.display === "flex") return;
   if (!currentGameState || isRollInFlight) return;
   const isMyTurn = currentGameState.currentTurn === myPlayerColor;
   if (!isMyTurn || currentGameState.phase !== "ROLL") return;
@@ -422,6 +459,11 @@ function triggerRoll(powerMultiplier = 1.0) {
 // Spacebar Hold & Release Listeners
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space" && !e.repeat && document.activeElement.tagName !== "INPUT") {
+    if (winnerModal && winnerModal.style.display === "flex") {
+      e.preventDefault();
+      socket.emit("request-rematch");
+      return;
+    }
     e.preventDefault();
     startDiceCharge();
   }
@@ -429,6 +471,7 @@ window.addEventListener("keydown", (e) => {
 
 window.addEventListener("keyup", (e) => {
   if (e.code === "Space" && document.activeElement.tagName !== "INPUT") {
+    if (winnerModal && winnerModal.style.display === "flex") return;
     e.preventDefault();
     releaseDiceCharge();
   }
@@ -483,7 +526,7 @@ for (let i = 0; i < 4; i++) {
 
     btn.addEventListener("mouseenter", () => {
       if (currentGameState && currentValidMoves.includes(i)) {
-        boardRenderer.previewPath(currentGameState, i, currentGameState.lastRoll, myPlayerColor);
+        boardRenderer.previewPath(currentGameState, i, currentGameState.lastRoll || currentGameState.diceValue, myPlayerColor);
       }
     });
 
@@ -548,11 +591,31 @@ socket.on("player-joined", (data) => {
 socket.on("error-msg", (data) => {
   sessionStorage.removeItem("ludo_room_code");
   sessionStorage.removeItem("ludo_game_state");
+  localStorage.removeItem("ludo_room_code");
+  localStorage.removeItem("ludo_game_state");
   alert(data.message || "Table expired or not found. Redirecting to lobby to start a new table.");
   window.location.replace("/");
 });
 
+socket.on("room-joined", (data) => {
+  if (data.player) {
+    myPlayerColor = data.player.color;
+    sessionStorage.setItem("ludo_player_color", data.player.color);
+    localStorage.setItem("ludo_player_color", data.player.color);
+    sessionStorage.setItem("ludo_player_name", data.player.name);
+    localStorage.setItem("ludo_player_name", data.player.name);
+  }
+  updateGameView(data.gameState);
+});
+
 socket.on("game-updated", (data) => {
+  if (data.player) {
+    myPlayerColor = data.player.color;
+    sessionStorage.setItem("ludo_player_color", data.player.color);
+    localStorage.setItem("ludo_player_color", data.player.color);
+    sessionStorage.setItem("ludo_player_name", data.player.name);
+    localStorage.setItem("ludo_player_name", data.player.name);
+  }
   updateGameView(data.gameState);
   if (data.message) addLogMessage(data.message, "game");
 });
@@ -632,8 +695,12 @@ socket.on("token-moved", (data) => {
       if (window.sounds) window.sounds.playWin();
       if (window.announcer) window.announcer.announceWin(data.winner ? data.winner.name : "Winner");
       winnerTitle.textContent = data.winner.name + " wins!";
-      winnerDesc.textContent = "All four pawns brought home safely.";
+      const isQuick = data.gameState && data.gameState.gameMode === "quick";
+      winnerDesc.textContent = isQuick ? "First to 2 goals reached! Table champion!" : "All four pawns brought home safely!";
       winnerModal.style.display = "flex";
+      if (boardRenderer && boardRenderer.triggerVictoryConfetti) {
+        boardRenderer.triggerVictoryConfetti();
+      }
     }
 
     updateGameView(data.gameState, []);
@@ -685,9 +752,11 @@ function updateGameView(gameState, validMoves) {
   if (!validMoves) validMoves = currentValidMoves;
   currentGameState = gameState;
 
-  const me = gameState.players.find(p => p.id === socket.id || p.name === playerName);
+  const me = gameState.players.find(p => p.id === socket.id || (myPlayerColor && p.color === myPlayerColor) || p.name === playerName);
   if (me) {
     myPlayerColor = me.color;
+    sessionStorage.setItem("ludo_player_color", me.color);
+    localStorage.setItem("ludo_player_color", me.color);
   }
 
   const isMyTurn = gameState.currentTurn === myPlayerColor;
@@ -717,7 +786,7 @@ function updateGameView(gameState, validMoves) {
 
     // Auto-preview path if exactly 1 move is possible
     if (validMoves && validMoves.length === 1) {
-      boardRenderer.previewPath(gameState, validMoves[0], gameState.lastRoll, myPlayerColor);
+      boardRenderer.previewPath(gameState, validMoves[0], gameState.lastRoll || gameState.diceValue, myPlayerColor);
     }
   } else {
     btnRollDice.disabled = true;
@@ -863,6 +932,10 @@ if (btnRematch) {
 
 if (btnExitLobby) {
   btnExitLobby.addEventListener("click", () => {
+    sessionStorage.removeItem("ludo_room_code");
+    sessionStorage.removeItem("ludo_game_state");
+    localStorage.removeItem("ludo_room_code");
+    localStorage.removeItem("ludo_game_state");
     window.location.href = "/";
   });
 }
