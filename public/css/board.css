@@ -2132,3 +2132,40 @@ button, .token, .cell {
     padding: 2px 4px;
   }
 }
+
+/* CAPTURE SHOCKWAVE RING */
+.capture-shockwave-ring {
+  position: absolute;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  border: 3.5px solid #f43f5e;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.6);
+  box-shadow: 0 0 25px rgba(244, 63, 94, 0.85);
+  animation: shockwaveExpandAnim 0.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+  z-index: 100;
+}
+
+@keyframes shockwaveExpandAnim {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 1;
+    border-width: 4px;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(4.2);
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+.confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1000;
+  display: none;
+}

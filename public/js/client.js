@@ -837,6 +837,7 @@ socket.on("game-rematch-started", (data) => {
   winnerModal.classList.remove("active");
   currentGameState = data.gameState;
   currentValidMoves = [];
+  if (boardRenderer && boardRenderer.clearConfetti) boardRenderer.clearConfetti();
   if (window.sounds) window.sounds.playRematch();
   hideRollBadge();
   if (window.announcer) window.announcer.speak("Rematch ready! Roll to start!");

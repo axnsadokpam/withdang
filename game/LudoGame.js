@@ -67,7 +67,8 @@ class LudoGame {
     this.players.push(player);
 
     if (this.players.length === this.maxPlayers) {
-      this.status = 'PLAYING';
+      this.players.forEach(p => { p.tokens = this.tokens[p.color]; });
+    this.status = 'PLAYING';
       this.currentTurnIndex = 0;
       this.phase = 'ROLL';
     }
