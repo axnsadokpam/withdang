@@ -588,3 +588,5 @@ setInterval(() => {
     }
   });
 }, 2000);
+
+module.exports = { app, server, io, rooms };
