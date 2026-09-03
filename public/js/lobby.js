@@ -217,3 +217,12 @@ if (joinNameInput) {
     }
   });
 }
+
+// Spoken Dice Voice toggle in Lobby
+const lobbyAnnouncerToggle = document.getElementById("lobby-announcer-toggle");
+if (lobbyAnnouncerToggle) {
+  lobbyAnnouncerToggle.checked = localStorage.getItem("ludo_announcer") === "true";
+  lobbyAnnouncerToggle.addEventListener("change", (e) => {
+    localStorage.setItem("ludo_announcer", e.target.checked);
+  });
+}

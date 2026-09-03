@@ -416,7 +416,7 @@ class SoundManager {
 /* --------------------------------------------------------- */
 class ArenaAnnouncer {
   constructor() {
-    this.enabled = localStorage.getItem('ludo_announcer') !== 'false';
+    this.enabled = localStorage.getItem('ludo_announcer') === 'true';
     this.synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
     this.voice = null;
     this.initVoice();

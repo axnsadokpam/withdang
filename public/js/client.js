@@ -769,17 +769,26 @@ socket.on("game-rematch-started", (data) => {
 });
 
 
-// ANNOUNCER & VISUAL ROLL BADGE
+// ANNOUNCER (SPOKEN DICE VOICE) & VISUAL ROLL BADGE
 const btnAnnouncerToggle = document.getElementById("btn-announcer-toggle");
 const diceRollBadge = document.getElementById("dice-roll-badge");
 const diceRollNum = document.getElementById("dice-roll-num");
 
+function updateAnnouncerButtonState(enabled) {
+  if (!btnAnnouncerToggle) return;
+  btnAnnouncerToggle.classList.toggle("active", enabled);
+  btnAnnouncerToggle.style.opacity = enabled ? "1" : "0.45";
+  btnAnnouncerToggle.title = enabled 
+    ? "Spoken Dice Voice: ON (Click to Mute)" 
+    : "Spoken Dice Voice: OFF (Click to Enable)";
+}
+
 if (btnAnnouncerToggle && window.announcer) {
-  btnAnnouncerToggle.classList.toggle("active", window.announcer.enabled);
+  updateAnnouncerButtonState(window.announcer.enabled);
   btnAnnouncerToggle.addEventListener("click", () => {
     const isNowEnabled = window.announcer.toggle();
-    btnAnnouncerToggle.classList.toggle("active", isNowEnabled);
-    addLogMessage("Voice Announcer: " + (isNowEnabled ? "Enabled" : "Muted"), "game");
+    updateAnnouncerButtonState(isNowEnabled);
+    addLogMessage("Spoken Dice Voice: " + (isNowEnabled ? "Enabled" : "Muted"), "game");
   });
 }
 
