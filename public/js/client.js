@@ -247,9 +247,21 @@ function filterChatMessages() {
   });
 }
 
+
+const cachedState = sessionStorage.getItem("ludo_game_state");
+if (cachedState) {
+  try {
+    const parsedState = JSON.parse(cachedState);
+    if (parsedState && parsedState.roomCode === roomCode) {
+      updateGameView(parsedState);
+    }
+  } catch (e) {}
+}
+
 socket.emit("join-room", {
   roomCode: roomCode,
-  playerName: playerName
+  playerName: playerName,
+  playerColor: sessionStorage.getItem("ludo_player_color")
 });
 
 

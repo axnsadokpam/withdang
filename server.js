@@ -155,7 +155,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('join-room', ({ roomCode, playerName }) => {
+    socket.on('join-room', ({ roomCode, playerName, playerColor }) => {
     const code = (roomCode || '').trim().toUpperCase();
     const game = rooms[code];
 
@@ -163,15 +163,25 @@ io.on('connection', (socket) => {
       return socket.emit('error-msg', { message: 'Room not found.' });
     }
 
-    const existing = game.players.find(p => p.name.toLowerCase() === (playerName || '').toLowerCase());
+    // Try finding existing player by name, then by color, then by disconnected seat
+    let existing = game.players.find(p => p.name.toLowerCase() === (playerName || '').toLowerCase());
+    if (!existing && playerColor) {
+      existing = game.players.find(p => p.color === playerColor);
+    }
+    if (!existing && game.status === 'PLAYING') {
+      existing = game.players.find(p => !p.connected || p.isAway);
+    }
+
     if (existing) {
       game.reconnectPlayer(socket.id, existing.name);
       socket.join(code);
       socket.roomCode = code;
       socket.playerName = existing.name;
 
-      io.to(code).emit('game-updated', {
-        gameState: game.getPublicState(),
+      const pubState = game.getPublicState();
+      socket.emit('game-updated', { gameState: pubState });
+      socket.to(code).emit('game-updated', {
+        gameState: pubState,
         message: existing.name + ' reconnected'
       });
       return;
@@ -186,14 +196,15 @@ io.on('connection', (socket) => {
     socket.roomCode = code;
     socket.playerName = res.player.name;
 
+    const pubState = game.getPublicState();
     io.to(code).emit('player-joined', {
       player: res.player,
-      gameState: game.getPublicState()
+      gameState: pubState
     });
 
     if (game.status === 'PLAYING') {
       io.to(code).emit('game-started', {
-        gameState: game.getPublicState()
+        gameState: pubState
       });
     }
   });

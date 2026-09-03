@@ -121,6 +121,8 @@ btnJoinRoom.addEventListener("click", () => {
     return;
   }
   localStorage.setItem("ludo_player_name", name);
+  sessionStorage.setItem("ludo_player_name", name);
+  sessionStorage.setItem("ludo_room_code", code);
   socket.emit("join-room", { roomCode: code, playerName: name });
 });
 
@@ -157,6 +159,14 @@ socket.on("room-created", (data) => {
 socket.on("player-joined", (data) => {
   currentRoomCode = data.gameState.roomCode;
   sessionStorage.setItem("ludo_room_code", data.gameState.roomCode);
+  if (data.player) {
+    // If this socket was the one who joined, persist their assigned identity
+    const savedName = (joinNameInput.value || hostNameInput.value || "").trim().toLowerCase();
+    if (data.player.name.toLowerCase() === savedName) {
+      sessionStorage.setItem("ludo_player_name", data.player.name);
+      sessionStorage.setItem("ludo_player_color", data.player.color);
+    }
+  }
   showLobby(data.gameState);
 });
 
