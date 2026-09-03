@@ -31,6 +31,61 @@ function generateRoomCode() {
 }
 
 
+function executeBotMove(roomCode, game, liveCurrent) {
+  if (!rooms[roomCode] || game.status !== 'PLAYING') return;
+  const valid = game.getValidMoves(liveCurrent.color, game.diceValue);
+  if (!valid || valid.length === 0) {
+    game.phase = 'ROLL';
+    game.diceValue = null;
+    game.passTurn();
+    io.to(roomCode).emit('dice-rolled', {
+      player: liveCurrent,
+      gameState: game.getPublicState(),
+      turnPassed: true,
+      autoPass: true
+    });
+    setTimeout(() => handleBotTurn(roomCode), 400);
+    return;
+  }
+
+  let bestTokenId = game.getSmartBotMove(liveCurrent.id);
+  if (bestTokenId === null || !valid.includes(bestTokenId)) {
+    bestTokenId = valid[0];
+  }
+
+  const moveRes = game.moveToken(liveCurrent.id, bestTokenId);
+  if (!moveRes.success) {
+    game.phase = 'ROLL';
+    game.diceValue = null;
+    game.passTurn();
+    io.to(roomCode).emit('dice-rolled', {
+      player: liveCurrent,
+      gameState: game.getPublicState(),
+      turnPassed: true
+    });
+    setTimeout(() => handleBotTurn(roomCode), 400);
+    return;
+  }
+
+  io.to(roomCode).emit('token-moved', {
+    player: liveCurrent,
+    tokenId: moveRes.tokenId,
+    prevStep: moveRes.prevStep,
+    newStep: moveRes.newStep,
+    roll: moveRes.roll,
+    captureOccurred: moveRes.captureOccurred,
+    capturedInfo: moveRes.capturedInfo,
+    getsBonusTurn: moveRes.getsBonusTurn,
+    gameOver: moveRes.gameOver,
+    winner: moveRes.winner,
+    gameState: game.getPublicState()
+  });
+
+  if (!moveRes.gameOver) {
+    setTimeout(() => handleBotTurn(roomCode), 400);
+  }
+}
+
 function handleBotTurn(roomCode) {
   const game = rooms[roomCode];
   if (!game || game.status !== 'PLAYING') return;
@@ -43,52 +98,42 @@ function handleBotTurn(roomCode) {
     const liveCurrent = game.getCurrentPlayer();
     if (!liveCurrent || !liveCurrent.isBot) return;
 
-    const rollRes = game.rollDice(liveCurrent.id);
-    if (!rollRes.success) return;
-
-    io.to(roomCode).emit('dice-rolled', {
-      power: 1.0 + Math.random() * 0.35,
-      player: liveCurrent,
-      roll: rollRes.roll,
-      validMoves: rollRes.validMoves || [],
-      autoPass: rollRes.autoPass || false,
-      turnPassed: rollRes.turnPassed || rollRes.autoPass || false,
-      threeSixes: rollRes.threeSixes || false,
-      gameState: game.getPublicState()
-    });
-
-    if (rollRes.turnPassed || rollRes.autoPass || rollRes.threeSixes) {
-      setTimeout(() => handleBotTurn(roomCode), 400);
+    // If bot already has a pending move
+    if (game.phase === 'MOVE') {
+      executeBotMove(roomCode, game, liveCurrent);
       return;
     }
 
-    setTimeout(() => {
-      if (!rooms[roomCode]) return;
-      const bestTokenId = game.getSmartBotMove(liveCurrent.id);
-      if (bestTokenId === null) return;
+    if (game.phase === 'ROLL') {
+      const rollRes = game.rollDice(liveCurrent.id);
+      if (!rollRes.success) {
+        if (game.phase === 'MOVE') {
+          executeBotMove(roomCode, game, liveCurrent);
+        }
+        return;
+      }
 
-      const moveRes = game.moveToken(liveCurrent.id, bestTokenId);
-      if (!moveRes.success) return;
-
-      io.to(roomCode).emit('token-moved', {
+      io.to(roomCode).emit('dice-rolled', {
+        power: 1.0 + Math.random() * 0.35,
         player: liveCurrent,
-        tokenId: moveRes.tokenId,
-        prevStep: moveRes.prevStep,
-        newStep: moveRes.newStep,
-        roll: moveRes.roll,
-        captureOccurred: moveRes.captureOccurred,
-        capturedInfo: moveRes.capturedInfo,
-        getsBonusTurn: moveRes.getsBonusTurn,
-        gameOver: moveRes.gameOver,
-        winner: moveRes.winner,
+        roll: rollRes.roll,
+        validMoves: rollRes.validMoves || [],
+        autoPass: rollRes.autoPass || false,
+        turnPassed: rollRes.turnPassed || rollRes.autoPass || false,
+        threeSixes: rollRes.threeSixes || false,
         gameState: game.getPublicState()
       });
 
-      if (!moveRes.gameOver) {
+      if (rollRes.turnPassed || rollRes.autoPass || rollRes.threeSixes) {
         setTimeout(() => handleBotTurn(roomCode), 400);
+        return;
       }
-    }, 240);
-  }, 220);
+
+      setTimeout(() => {
+        executeBotMove(roomCode, game, liveCurrent);
+      }, 350);
+    }
+  }, 240);
 }
 
 io.on('connection', (socket) => {

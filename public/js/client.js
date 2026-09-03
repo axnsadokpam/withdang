@@ -407,11 +407,7 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
-  if (e.code === "Space" || e.key === " " || e.key === "r" || e.key === "R") {
-    e.preventDefault();
-    triggerRoll();
-    return;
-  }
+  // Spacebar handled exclusively by analog charge controller
 
   if (e.key === "v" || e.key === "V") {
     if (voiceChat.isJoined) voiceChat.leaveVoice();
