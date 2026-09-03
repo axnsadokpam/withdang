@@ -286,6 +286,22 @@ io.on('connection', (socket) => {
     handleBotTurn(socket.roomCode);
   });
 
+  
+  socket.on('send-reaction', ({ emoji }) => {
+    const code = socket.roomCode;
+    if (!code) return;
+    const game = rooms[code];
+    if (!game) return;
+    const player = game.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    io.to(code).emit('reaction-sent', {
+      sender: player.name,
+      color: player.color,
+      emoji: (emoji || '❤️').slice(0, 4)
+    });
+  });
+
   socket.on('send-chat', ({ message }) => {
     const game = rooms[socket.roomCode];
     if (!game) return;

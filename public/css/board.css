@@ -2025,3 +2025,110 @@ button, .token, .cell {
   0% { transform: translate(-1px, 1px) rotate(-0.5deg); }
   100% { transform: translate(1px, -1px) rotate(0.5deg); }
 }
+
+/* ========================================================= */
+/* FLOATING LIVE REACTION BAR & ANIMATIONS                   */
+/* ========================================================= */
+.room-badge {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.room-badge:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+  transform: translateY(-1px);
+}
+
+.room-badge:active {
+  transform: translateY(1px);
+}
+
+.reactions-floating-bar {
+  position: absolute;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(30, 24, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 12px;
+  border-radius: 24px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 40;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.reaction-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 50%;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.reaction-btn:hover {
+  transform: scale(1.35) translateY(-3px);
+}
+
+.reaction-btn:active {
+  transform: scale(0.95);
+}
+
+.floating-reactions-stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 50;
+}
+
+.floating-emoji {
+  position: absolute;
+  bottom: 60px;
+  font-size: 32px;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+  animation: floatUpAndFade 2.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes floatUpAndFade {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4) rotate(0deg);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1.25) rotate(-6deg);
+  }
+  40% {
+    transform: translateY(-140px) scale(1.1) rotate(6deg);
+  }
+  80% {
+    opacity: 0.9;
+    transform: translateY(-280px) scale(1.0) rotate(-4deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-380px) scale(0.8) rotate(8deg);
+  }
+}
+
+@media (max-width: 1024px) {
+  .reactions-floating-bar {
+    bottom: 6px;
+    padding: 4px 10px;
+    gap: 6px;
+  }
+  .reaction-btn {
+    font-size: 18px;
+    padding: 2px 4px;
+  }
+}

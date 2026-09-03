@@ -1,4 +1,77 @@
 
+// =========================================================
+// MOBILE HAPTIC VIBRATION
+// =========================================================
+function triggerHaptic(type) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      if (type === 'turn') navigator.vibrate([35]);
+      else if (type === 'six') navigator.vibrate([40, 60, 80]);
+      else if (type === 'capture') navigator.vibrate([70, 40, 100]);
+      else if (type === 'click') navigator.vibrate([15]);
+    } catch (e) {}
+  }
+}
+
+// =========================================================
+// CLICK-TO-COPY ROOM CODE IN HEADER
+// =========================================================
+const roomBadgeEl = document.querySelector(".room-badge");
+if (roomBadgeEl) {
+  roomBadgeEl.title = "Click to copy invite link";
+  roomBadgeEl.addEventListener("click", () => {
+    const inviteUrl = window.location.origin + "/?room=" + roomCode;
+    triggerHaptic('click');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(inviteUrl).then(() => {
+        const origHtml = roomBadgeEl.innerHTML;
+        roomBadgeEl.innerHTML = '<span class="badge-label" style="display:inline !important;">✓</span> <strong class="badge-code" style="color:#10b981;">Copied!</strong>';
+        addLogMessage("Invite link copied to clipboard!", "game");
+        setTimeout(() => { roomBadgeEl.innerHTML = origHtml; }, 2200);
+      }).catch(() => {});
+    }
+  });
+}
+
+// =========================================================
+// FLOATING LIVE REACTIONS CONTROLLER
+// =========================================================
+const reactionsBar = document.getElementById("reactions-bar");
+const floatingStage = document.getElementById("floating-reactions-stage");
+
+if (reactionsBar) {
+  reactionsBar.querySelectorAll(".reaction-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const emoji = btn.dataset.emoji;
+      triggerHaptic('click');
+      socket.emit("send-reaction", { emoji });
+    });
+  });
+}
+
+socket.on("reaction-sent", (data) => {
+  if (window.sounds) window.sounds.playReactionPop();
+  spawnFloatingEmoji(data.emoji, data.color);
+});
+
+function spawnFloatingEmoji(emoji, color) {
+  if (!floatingStage) return;
+  const el = document.createElement("div");
+  el.className = "floating-emoji";
+  el.textContent = emoji;
+
+  // Random horizontal spawn position across center of board
+  const minX = 25;
+  const maxX = 75;
+  const randomX = minX + Math.random() * (maxX - minX);
+  el.style.left = randomX + "%";
+
+  floatingStage.appendChild(el);
+  setTimeout(() => { el.remove(); }, 2500);
+}
+
+
 // Universal Mobile Audio & Speech Unlock
 document.addEventListener('pointerdown', function unlockAudioOnce() {
   if (window.sounds) window.sounds.init();
@@ -457,6 +530,7 @@ socket.on("dice-rolled", (data) => {
 
     showRollBadge(data.roll);
     const pName = data.player ? data.player.name : (data.gameState && data.gameState.currentTurnPlayer ? data.gameState.currentTurnPlayer.name : "Player");
+    if (data.roll === 6) triggerHaptic("six");
     if (window.announcer) {
       window.announcer.announceRoll(data.roll, pName, data.roll === 6);
     }
@@ -507,6 +581,7 @@ socket.on("token-moved", (data) => {
   // Execute step-by-step parabolic arc hop!
   boardRenderer.animateTokenHopSequence(data.player.color, data.tokenId, data.prevStep, data.newStep, () => {
     if (data.captureOccurred && data.capturedInfo) {
+      triggerHaptic("capture");
       const coords = boardRenderer.getCoordinates(data.player.color, data.newStep, data.tokenId);
       boardRenderer.triggerCaptureShockwave(coords[0], coords[1]);
       if (window.sounds) window.sounds.playCapture();
@@ -593,6 +668,7 @@ function updateGameView(gameState, validMoves) {
   if (turnPhaseBadge) turnPhaseBadge.textContent = gameState.phase;
 
   if (isMyTurn && gameState.phase === "ROLL") {
+    triggerHaptic("turn");
     btnRollDice.disabled = false;
     diceStatusTip.innerHTML = "Roll dice (<kbd style=\"background:#1e293b; border:1px solid #334155; padding:2px 6px; border-radius:4px; color:#fff;\">Space</kbd>)";
     diceStatusTip.style.color = "#34d399";
