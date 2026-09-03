@@ -35,6 +35,8 @@
 }
 
 body.arena-body {
+  width: 100vw;
+  align-items: stretch !important;
   margin: 0;
   padding: 0;
   width: 100vw;
@@ -75,6 +77,7 @@ body.arena-body {
 
 /* TOP FLOATING BAR */
 .arena-top-bar {
+  width: 100%;
   position: relative;
   z-index: 50;
   height: 52px;
@@ -246,6 +249,7 @@ body.arena-body {
 
 /* MAIN ARENA STAGE */
 .arena-stage {
+  width: 100%;
   position: relative;
   z-index: 10;
   flex: 1;
