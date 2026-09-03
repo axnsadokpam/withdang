@@ -80,14 +80,31 @@ const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get("room");
 if (roomParam) {
   const code = roomParam.trim().toUpperCase();
-  roomCodeInput.value = code;
-  if (joinPillar) {
-    joinPillar.classList.add("highlighted");
+  if (roomCodeInput) roomCodeInput.value = code;
+  
+  // On mobile or invited visitor, prioritize Join card to top
+  const hostCol = document.querySelector(".host-column");
+  const joinCol = document.getElementById("join-pillar");
+  const portalGrid = document.getElementById("join-card");
+  
+  if (joinCol && portalGrid) {
+    portalGrid.insertBefore(joinCol, hostCol);
+    joinCol.style.border = "2px solid #f59e0b";
+    joinCol.style.boxShadow = "0 0 25px rgba(245, 158, 11, 0.35)";
+    const joinBadge = joinCol.querySelector(".column-badge");
+    if (joinBadge) {
+      joinBadge.innerHTML = "✨ YOU HAVE BEEN INVITED";
+      joinBadge.style.background = "#f59e0b";
+      joinBadge.style.color = "#1e181c";
+    }
   }
-  // Focus the join name input immediately for the invited player
+
   setTimeout(() => {
-    if (joinNameInput) joinNameInput.focus();
-  }, 200);
+    if (joinNameInput) {
+      joinNameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      joinNameInput.focus();
+    }
+  }, 300);
 }
 
 // Capacity buttons

@@ -11,6 +11,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var roomParam = params.get("room");
+      if (roomParam) {
+        window.location.replace("/?room=" + encodeURIComponent(roomParam));
+        return;
+      }
+      var rc = sessionStorage.getItem("ludo_room_code");
+      if (!rc || rc === "null" || rc === "undefined" || rc.length !== 6) {
+        sessionStorage.removeItem("ludo_room_code");
+        window.location.replace("/?error=notable");
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="/css/board.css?v=dang10">
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/three.min.js"></script>
@@ -487,11 +502,11 @@
     </div>
   </div>
 
-  <script src="/js/sounds.js"></script>
-  <script src="/js/dice3d.js"></script>
-  <script src="/js/renderer.js"></script>
-  <script src="/js/voice.js"></script>
-  <script src="/js/client.js"></script>
+  <script src="/js/sounds.js?v=205"></script>
+  <script src="/js/dice3d.js?v=205"></script>
+  <script src="/js/renderer.js?v=205"></script>
+  <script src="/js/voice.js?v=205"></script>
+  <script src="/js/client.js?v=205"></script>
   <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 </body>
 </html>
