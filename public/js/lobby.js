@@ -131,8 +131,27 @@ function showError(msg) {
 btnCreateRoom.addEventListener("click", () => {
   const name = (hostNameInput.value || "").trim() || "Player";
   localStorage.setItem("ludo_player_name", name);
+  isSoloBotMatch = false;
   socket.emit("create-room", { playerName: name, maxPlayers: selectedPlayerCount, preferredColor: selectedHostColor, gameMode: selectedGameMode });
 });
+
+// SOLO MATCH: Instant Play vs AI Bots
+const btnQuickBot = document.getElementById("btn-quick-bot");
+let isSoloBotMatch = false;
+
+if (btnQuickBot) {
+  btnQuickBot.addEventListener("click", () => {
+    const name = (hostNameInput.value || "").trim() || "Player";
+    localStorage.setItem("ludo_player_name", name);
+    isSoloBotMatch = true;
+    socket.emit("create-room", { 
+      playerName: name, 
+      maxPlayers: selectedPlayerCount, 
+      preferredColor: selectedHostColor, 
+      gameMode: selectedGameMode 
+    });
+  });
+}
 
 // GUEST: Join Room (With their dedicated name input!)
 btnJoinRoom.addEventListener("click", () => {
@@ -197,7 +216,12 @@ socket.on("room-created", (data) => {
   localStorage.setItem("ludo_room_code", data.roomCode);
   localStorage.setItem("ludo_player_name", data.player.name);
   localStorage.setItem("ludo_player_color", data.player.color);
-  showLobby(data.gameState);
+  if (isSoloBotMatch) {
+    isSoloBotMatch = false;
+    socket.emit("add-bot");
+  } else {
+    showLobby(data.gameState);
+  }
 });
 
 socket.on("room-joined", (data) => {

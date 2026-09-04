@@ -48,7 +48,7 @@
 
   <header class="arena-top-bar">
     <div class="top-bar-left">
-      <div class="arena-brand">
+      <a href="/" class="arena-brand" style="text-decoration: none; color: inherit;" title="Back to Lounge Lobby">
         <svg class="brand-crown" width="28" height="24" viewBox="0 0 32 28" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M4 22C4 20.8 28 20.8 28 22L27 24C27 24.6 5 24.6 5 24L4 22Z" fill="url(#crownBandGold)"/>
           <path d="M5 20L7.5 10L12.5 15L16 6L19.5 15L24.5 10L27 20H5Z" fill="url(#crownMainGold)" stroke="#d97706" stroke-width="0.8"/>
@@ -75,7 +75,7 @@
           <span class="brand-title">LOUNGE WITH</span>
           <span class="brand-subtitle">DANG</span>
         </div>
-      </div>
+      </a>
     </div>
 
     <div class="top-bar-center">
@@ -256,6 +256,10 @@
         </div>
         <div id="game-players-list" class="players-roster">
         </div>
+        <button id="btn-add-bot" class="btn-primary" style="display: none; margin-top: 10px; width: 100%; font-size: 13px; padding: 9px 12px; border-radius: 8px; justify-content: center; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>Fill with AI Bots</span>
+        </button>
       </div>
 
     </aside>
@@ -516,11 +520,11 @@
     </div>
   </div>
 
-  <script src="/js/sounds.js?v=207"></script>
-  <script src="/js/dice3d.js?v=207"></script>
-  <script src="/js/renderer.js?v=207"></script>
-  <script src="/js/voice.js?v=207"></script>
-  <script src="/js/client.js?v=207"></script>
+  <script src="/js/sounds.js?v=208"></script>
+  <script src="/js/dice3d.js?v=208"></script>
+  <script src="/js/renderer.js?v=208"></script>
+  <script src="/js/voice.js?v=208"></script>
+  <script src="/js/client.js?v=208"></script>
   <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 </body>
 </html>

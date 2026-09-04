@@ -1,5 +1,36 @@
 
 // =========================================================
+// SESSION VALIDATION & SOCKET INITIALIZATION (MUST BE FIRST)
+// =========================================================
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get("room");
+
+if (roomParam) {
+  // If user navigated directly to /game.html?room=CODE, redirect to lobby to pick name and join properly
+  window.location.replace("/?room=" + encodeURIComponent(roomParam));
+  throw new Error("Redirecting to lobby to join table properly");
+}
+
+const roomCode = sessionStorage.getItem("ludo_room_code") || localStorage.getItem("ludo_room_code");
+const playerName = sessionStorage.getItem("ludo_player_name") || localStorage.getItem("ludo_player_name") || "Player";
+const playerColor = sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color");
+
+if (!roomCode || roomCode === "null" || roomCode === "undefined" || roomCode.length !== 6) {
+  sessionStorage.removeItem("ludo_room_code");
+  sessionStorage.removeItem("ludo_game_state");
+  localStorage.removeItem("ludo_room_code");
+  localStorage.removeItem("ludo_game_state");
+  window.location.replace("/?error=notable");
+  throw new Error("No active table session found. Redirecting to lobby.");
+}
+
+sessionStorage.setItem("ludo_room_code", roomCode);
+sessionStorage.setItem("ludo_player_name", playerName);
+if (playerColor) sessionStorage.setItem("ludo_player_color", playerColor);
+
+const socket = io();
+
+// =========================================================
 // MOBILE HAPTIC VIBRATION
 // =========================================================
 function triggerHaptic(type) {
@@ -102,35 +133,6 @@ document.addEventListener('pointerdown', function unlockAudioOnce() {
   }
   document.removeEventListener('pointerdown', unlockAudioOnce);
 }, { once: true });
-const socket = io();
-
-
-// Validate active session
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get("room");
-
-if (roomParam) {
-  // If user navigated directly to /game.html?room=CODE, redirect to lobby to pick name and join properly
-  window.location.replace("/?room=" + encodeURIComponent(roomParam));
-  throw new Error("Redirecting to lobby to join table properly");
-}
-
-const roomCode = sessionStorage.getItem("ludo_room_code") || localStorage.getItem("ludo_room_code");
-const playerName = sessionStorage.getItem("ludo_player_name") || localStorage.getItem("ludo_player_name") || "Player";
-const playerColor = sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color");
-
-if (!roomCode || roomCode === "null" || roomCode === "undefined" || roomCode.length !== 6) {
-  sessionStorage.removeItem("ludo_room_code");
-  sessionStorage.removeItem("ludo_game_state");
-  localStorage.removeItem("ludo_room_code");
-  localStorage.removeItem("ludo_game_state");
-  window.location.replace("/?error=notable");
-  throw new Error("No active table session found. Redirecting to lobby.");
-}
-
-sessionStorage.setItem("ludo_room_code", roomCode);
-sessionStorage.setItem("ludo_player_name", playerName);
-if (playerColor) sessionStorage.setItem("ludo_player_color", playerColor);
 
 
 const headerRoomCode = document.getElementById("header-room-code");
@@ -593,8 +595,7 @@ socket.on("error-msg", (data) => {
   sessionStorage.removeItem("ludo_game_state");
   localStorage.removeItem("ludo_room_code");
   localStorage.removeItem("ludo_game_state");
-  alert(data.message || "Table expired or not found. Redirecting to lobby to start a new table.");
-  window.location.replace("/");
+  window.location.replace("/?error=notable");
 });
 
 socket.on("room-joined", (data) => {
