@@ -11,22 +11,21 @@ if (roomParam) {
   throw new Error("Redirecting to lobby to join table properly");
 }
 
-const roomCode = sessionStorage.getItem("ludo_room_code") || localStorage.getItem("ludo_room_code");
-const playerName = sessionStorage.getItem("ludo_player_name") || localStorage.getItem("ludo_player_name") || "Player";
-const playerColor = sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color");
+let roomCode = sessionStorage.getItem("ludo_room_code") || localStorage.getItem("ludo_room_code");
+let playerName = sessionStorage.getItem("ludo_player_name") || localStorage.getItem("ludo_player_name") || "Player";
+let playerColor = sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color") || "green";
 
-if (!roomCode || roomCode === "null" || roomCode === "undefined" || roomCode.length !== 6) {
+if (roomCode === "null" || roomCode === "undefined" || (roomCode && roomCode.length !== 6)) {
+  roomCode = null;
   sessionStorage.removeItem("ludo_room_code");
-  sessionStorage.removeItem("ludo_game_state");
   localStorage.removeItem("ludo_room_code");
-  localStorage.removeItem("ludo_game_state");
-  window.location.replace("/?error=notable");
-  throw new Error("No active table session found. Redirecting to lobby.");
 }
 
-sessionStorage.setItem("ludo_room_code", roomCode);
+if (roomCode) {
+  sessionStorage.setItem("ludo_room_code", roomCode);
+}
 sessionStorage.setItem("ludo_player_name", playerName);
-if (playerColor) sessionStorage.setItem("ludo_player_color", playerColor);
+sessionStorage.setItem("ludo_player_color", playerColor);
 
 const socket = io();
 
@@ -296,11 +295,33 @@ if (cachedState) {
   } catch (e) {}
 }
 
-socket.emit("join-room", {
-  roomCode: roomCode,
-  playerName: playerName,
-  playerColor: playerColor || sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color")
-});
+function joinOrCreateGame() {
+  if (roomCode) {
+    if (headerRoomCode) headerRoomCode.textContent = roomCode;
+    socket.emit("join-room", {
+      roomCode: roomCode,
+      playerName: playerName,
+      playerColor: playerColor || sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color")
+    });
+  } else {
+    // Auto-create match vs AI Bot so game starts immediately!
+    addLogMessage("Setting up match vs AI Bot...", "game");
+    socket.emit("create-room", {
+      playerName: playerName,
+      maxPlayers: 2,
+      preferredColor: playerColor || "green",
+      gameMode: "quick"
+    });
+  }
+}
+
+if (socket.connected) {
+  joinOrCreateGame();
+} else {
+  socket.on("connect", () => {
+    joinOrCreateGame();
+  });
+}
 
 
 const btnVoiceToggle = document.getElementById("btn-voice-toggle");
@@ -590,12 +611,45 @@ socket.on("player-joined", (data) => {
 });
 
 
+socket.on("room-created", (data) => {
+  roomCode = data.roomCode;
+  myPlayerColor = data.player.color;
+  sessionStorage.setItem("ludo_room_code", data.roomCode);
+  sessionStorage.setItem("ludo_player_name", data.player.name);
+  sessionStorage.setItem("ludo_player_color", data.player.color);
+  localStorage.setItem("ludo_room_code", data.roomCode);
+  localStorage.setItem("ludo_player_name", data.player.name);
+  localStorage.setItem("ludo_player_color", data.player.color);
+  if (headerRoomCode) headerRoomCode.textContent = data.roomCode;
+  updateGameView(data.gameState);
+  
+  // Fill with bot immediately so game launches!
+  if (data.gameState.status === "WAITING") {
+    socket.emit("add-bot");
+  }
+});
+
+socket.on("game-started", (data) => {
+  updateGameView(data.gameState);
+  addLogMessage("Match started! Roll dice to begin.", "game");
+});
+
 socket.on("error-msg", (data) => {
-  sessionStorage.removeItem("ludo_room_code");
-  sessionStorage.removeItem("ludo_game_state");
-  localStorage.removeItem("ludo_room_code");
-  localStorage.removeItem("ludo_game_state");
-  window.location.replace("/?error=notable");
+  console.warn("Server notice:", data.message);
+  if (data.message && (data.message.includes("not found") || data.message.includes("expired") || data.message.includes("Room not found"))) {
+    sessionStorage.removeItem("ludo_room_code");
+    localStorage.removeItem("ludo_room_code");
+    roomCode = null;
+    addLogMessage("Table expired. Auto-starting match vs AI Bot...", "game");
+    socket.emit("create-room", {
+      playerName: playerName,
+      maxPlayers: 2,
+      preferredColor: playerColor || "green",
+      gameMode: "quick"
+    });
+  } else {
+    addLogMessage(data.message, "game");
+  }
 });
 
 socket.on("room-joined", (data) => {

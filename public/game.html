@@ -26,10 +26,6 @@
         if (pn) sessionStorage.setItem("ludo_player_name", pn);
         var pc = sessionStorage.getItem("ludo_player_color") || localStorage.getItem("ludo_player_color");
         if (pc) sessionStorage.setItem("ludo_player_color", pc);
-      } else {
-        sessionStorage.removeItem("ludo_room_code");
-        localStorage.removeItem("ludo_room_code");
-        window.location.replace("/?error=notable");
       }
     })();
   </script>
@@ -520,11 +516,11 @@
     </div>
   </div>
 
-  <script src="/js/sounds.js?v=208"></script>
-  <script src="/js/dice3d.js?v=208"></script>
-  <script src="/js/renderer.js?v=208"></script>
-  <script src="/js/voice.js?v=208"></script>
-  <script src="/js/client.js?v=208"></script>
+  <script src="/js/sounds.js?v=209"></script>
+  <script src="/js/dice3d.js?v=209"></script>
+  <script src="/js/renderer.js?v=209"></script>
+  <script src="/js/voice.js?v=209"></script>
+  <script src="/js/client.js?v=209"></script>
   <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 </body>
 </html>
