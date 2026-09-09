@@ -372,17 +372,36 @@ class LudoGame {
         tokenId,
         prevStep,
         newStep: token.step,
+        roll: this.diceValue,
         captureOccurred,
         capturedInfo,
         isSafeSpot,
         isHomeGoal,
+        homeLaneSixUsed: (this.diceValue === 6 && token.step >= 52),
         gameOver: true,
         winner: current
       };
     }
 
-    const bonus = this.diceValue === 6 || captureOccurred || token.step === 57;
     const rolled = this.diceValue;
+
+    // Real Ludo Hard Rule:
+    // Rolling a 6 grants a bonus turn on the outer track or when exiting the yard.
+    // BUT when a 6 is used to enter the Home Lane or advance into Home (newStep >= 52),
+    // the 6 is consumed for safe sanctuary entry and does NOT award an extra roll!
+    const enteredOrInHomeLaneWithSix = (rolled === 6 && token.step >= 52);
+
+    let bonus = false;
+    if (captureOccurred) {
+      bonus = true;
+    } else if (enteredOrInHomeLaneWithSix) {
+      bonus = false;
+    } else if (rolled === 6) {
+      bonus = true;
+    } else if (token.step === 57) {
+      bonus = true;
+    }
+
     this.phase = 'ROLL';
     this.diceValue = null;
 
@@ -400,6 +419,7 @@ class LudoGame {
       capturedInfo,
       isSafeSpot,
       isHomeGoal,
+      homeLaneSixUsed: enteredOrInHomeLaneWithSix,
       getsBonusTurn: bonus,
       nextPlayer: this.getCurrentPlayer()
     };

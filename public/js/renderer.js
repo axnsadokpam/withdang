@@ -260,6 +260,9 @@ class BoardRenderer {
         if (hasEnemy && !isSafeTile) {
           badgeType = "badge-capture";
           badgeText = "⚔️ CAPTURE";
+        } else if (effectiveRoll === 6 && (token.step + effectiveRoll) >= 52) {
+          badgeType = "badge-safe";
+          badgeText = "🏠 HOME ENTRY";
         } else if (isSafeTile) {
           badgeType = "badge-safe";
           badgeText = "🛡️ SAFE";

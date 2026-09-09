@@ -7,6 +7,7 @@ class ThreeDiceController {
     this.chargeRatio = 0;
     this.pendingCallback = null;
     this.rollTimeout = null;
+    this.spinVelocity = { x: 0, y: 0, z: 0 };
 
     this.faceRotations = {
       1: { x: 0, y: 0, z: 0 },
@@ -74,7 +75,7 @@ class ThreeDiceController {
     this.renderer = new THREE.WebGLRenderer({
       alpha: true,
       antialias: true,
-      powerPreference: "high-performance"
+      powerPreference: "default"
     });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
@@ -131,6 +132,10 @@ class ThreeDiceController {
       }
     });
 
+    try {
+      this.renderer.render(this.scene, this.camera);
+    } catch (e) {}
+
     this.animate();
   }
 
@@ -154,9 +159,10 @@ class ThreeDiceController {
   animate() {
     requestAnimationFrame(() => this.animate());
 
-    const now = performance.now();
+    try {
+      const now = performance.now();
 
-    if (this.isRolling) {
+      if (this.isRolling) {
       // Exponential air friction decay
       this.spinVelocity.x *= 0.948;
       this.spinVelocity.y *= 0.948;
@@ -255,7 +261,10 @@ class ThreeDiceController {
       this.needsRender = true;
     }
 
-    this.renderer.render(this.scene, this.camera);
+      this.renderer.render(this.scene, this.camera);
+    } catch (err) {
+      console.warn("Dice animate error:", err);
+    }
   }
 
   roll(finalValue, powerMultiplier = 1.0, callback) {

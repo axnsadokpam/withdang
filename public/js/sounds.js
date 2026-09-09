@@ -560,20 +560,30 @@ class ArenaAnnouncer {
 
   speak(text, priority = false) {
     if (!this.enabled || !this.synth) return;
-    if (priority) {
-      try { this.synth.cancel(); } catch (e) {}
-    }
-
+    
+    // Always clear pending utterances on mobile/Safari to prevent TTS engine queue freezing
     try {
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (this.voice) utterance.voice = this.voice;
-      utterance.rate = 1.08;
-      utterance.pitch = 1.05;
-      utterance.volume = 0.95;
-      this.synth.speak(utterance);
-    } catch (e) {
-      console.warn('[Announcer] Speech error:', e);
-    }
+      if (priority || this.synth.speaking || this.synth.pending) {
+        this.synth.cancel();
+      }
+    } catch (e) {}
+
+    // Dispatch speech asynchronously off the main gesture thread so Safari never hitches
+    setTimeout(() => {
+      try {
+        if (!this.enabled || !this.synth) return;
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (this.voice) utterance.voice = this.voice;
+        utterance.rate = 1.08;
+        utterance.pitch = 1.05;
+        utterance.volume = 0.95;
+        utterance.onerror = () => {};
+        utterance.onend = () => {};
+        this.synth.speak(utterance);
+      } catch (e) {
+        console.warn('[Announcer] Speech error:', e);
+      }
+    }, 10);
   }
 
   announceRoll(roll, playerName, getsBonus = false) {

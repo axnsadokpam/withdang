@@ -397,6 +397,13 @@ body.arena-body {
   transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
+.dice-3d-box {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .dice-3d-box:hover {
   transform: translateY(-2px);
   border-color: rgba(56, 189, 248, 0.4);
@@ -419,6 +426,10 @@ body.arena-body {
   gap: 10px;
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
   transition: all 0.2s ease;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .cta-roll-btn:hover:not(:disabled) {

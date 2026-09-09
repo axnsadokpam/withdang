@@ -414,12 +414,25 @@ function releaseDiceCharge() {
   triggerRoll(power);
 }
 
+let rollInFlightTimeout = null;
+
 function triggerRoll(powerMultiplier = 1.0) {
   if (!currentGameState || isRollInFlight) return;
   const isMyTurn = currentGameState.currentTurn === myPlayerColor;
   if (!isMyTurn || currentGameState.phase !== "ROLL") return;
 
   isRollInFlight = true;
+  if (rollInFlightTimeout) clearTimeout(rollInFlightTimeout);
+  // Safari / network failsafe: never leave roll permanently locked
+  rollInFlightTimeout = setTimeout(() => {
+    if (isRollInFlight) {
+      isRollInFlight = false;
+      if (currentGameState && currentGameState.currentTurn === myPlayerColor && currentGameState.phase === "ROLL") {
+        btnRollDice.disabled = false;
+      }
+    }
+  }, 4000);
+
   btnRollDice.disabled = true;
   hideRollBadge();
   boardRenderer.clearPathPreview();
@@ -456,27 +469,35 @@ let activeRollPointerId = null;
     if (window.sounds) window.sounds.init();
     if (activeRollPointerId !== null) return;
     activeRollPointerId = e.pointerId;
-    if (el.setPointerCapture) {
-      try { el.setPointerCapture(e.pointerId); } catch (err) {}
-    }
     startDiceCharge();
-  });
-  el.addEventListener("pointerup", (e) => {
-    if (e.pointerId === activeRollPointerId) {
-      activeRollPointerId = null;
-      if (el.releasePointerCapture) {
-        try { el.releasePointerCapture(e.pointerId); } catch (err) {}
-      }
-      releaseDiceCharge();
-    }
-  });
-  el.addEventListener("pointercancel", (e) => {
-    if (e.pointerId === activeRollPointerId) {
-      activeRollPointerId = null;
-      releaseDiceCharge();
-    }
-  });
+  }, { passive: true });
 });
+
+// Global release handlers: if the user's thumb moves slightly off the button on Safari/touchscreen,
+// releasing or cancelling anywhere on window STILL cleanly triggers the roll without getting stuck!
+window.addEventListener("pointerup", () => {
+  if (activeRollPointerId !== null) {
+    activeRollPointerId = null;
+    releaseDiceCharge();
+  }
+});
+
+window.addEventListener("pointercancel", () => {
+  if (activeRollPointerId !== null) {
+    activeRollPointerId = null;
+    releaseDiceCharge();
+  }
+});
+
+// Direct click fallback if pointer events were cancelled or missed on Safari
+if (btnRollDice) {
+  btnRollDice.addEventListener("click", () => {
+    if (!chargeStartTime && !isRollInFlight) {
+      if (window.sounds) window.sounds.init();
+      triggerRoll(1.0);
+    }
+  });
+}
 
 
 function handleTokenClick(tokenId) {
@@ -652,6 +673,10 @@ socket.on("game-updated", (data) => {
 });
 
 socket.on("dice-rolled", (data) => {
+  if (rollInFlightTimeout) {
+    clearTimeout(rollInFlightTimeout);
+    rollInFlightTimeout = null;
+  }
   dice3d.roll(data.roll, data.power || 1.0, () => {
     isRollInFlight = false;
     currentGameState = data.gameState;
@@ -733,6 +758,8 @@ socket.on("token-moved", (data) => {
 
     if (data.getsBonusTurn && !data.gameOver) {
       addLogMessage("Bonus roll awarded.", "game");
+    } else if (data.homeLaneSixUsed && !data.gameOver) {
+      addLogMessage("6 used for Home Lane entry. Turn completed without extra roll.", "game");
     }
 
     if (data.gameOver && data.winner) {
