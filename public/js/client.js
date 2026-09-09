@@ -198,15 +198,16 @@ if (btnFullscreen) {
 
 function setChatVisible(visible) {
   isChatOpen = visible;
+  if (!hudRight) return;
   if (visible) {
-    arenaStage.classList.remove("chat-collapsed");
+    if (arenaStage) arenaStage.classList.remove("chat-collapsed");
     hudRight.classList.remove("collapsed");
-    btnToggleChat.classList.add("active");
+    if (btnToggleChat) btnToggleChat.classList.add("active");
     if (chatUnreadDot) chatUnreadDot.classList.remove("visible");
   } else {
-    arenaStage.classList.add("chat-collapsed");
+    if (arenaStage) arenaStage.classList.add("chat-collapsed");
     hudRight.classList.add("collapsed");
-    btnToggleChat.classList.remove("active");
+    if (btnToggleChat) btnToggleChat.classList.remove("active");
   }
 }
 
@@ -223,6 +224,7 @@ if (btnCollapseChat) {
 }
 
 function filterChatMessages() {
+  if (!chatMessages) return;
   const bubbles = chatMessages.querySelectorAll(".chat-bubble");
   bubbles.forEach((b) => {
     b.style.display = "block";
@@ -552,6 +554,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 function sendChat() {
+  if (!chatInput) return;
   const text = (chatInput.value || "").trim();
   if (text) {
     socket.emit("send-chat", { message: text });
@@ -559,10 +562,12 @@ function sendChat() {
   }
 }
 
-btnChatSend.addEventListener("click", sendChat);
-chatInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendChat();
-});
+if (btnChatSend) btnChatSend.addEventListener("click", sendChat);
+if (chatInput) {
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendChat();
+  });
+}
 
 socket.on("player-joined", (data) => {
   updateGameView(data.gameState);
@@ -735,6 +740,7 @@ socket.on("token-moved", (data) => {
 });
 
 socket.on("chat-message", (data) => {
+  if (!chatMessages) return;
   const bubble = document.createElement("div");
   bubble.className = "chat-bubble";
   bubble.dataset.msgType = "chat";
@@ -875,6 +881,10 @@ function updateGameView(gameState, validMoves) {
 }
 
 function addLogMessage(msg, type) {
+  if (!chatMessages) {
+    console.log("[Ludo Log]", type || "info", msg);
+    return;
+  }
   const bubble = document.createElement("div");
   bubble.className = "chat-bubble";
   bubble.dataset.msgType = type || "chat";

@@ -489,23 +489,7 @@ class BoardRenderer {
         const groupIndex = group.findIndex(g => g.playerColor === color && g.tokenIndex === idx);
         const groupTotal = group.length;
 
-        let basePercent = null;
-
-        // Sub-pixel perfect socket centering for base slots
-        if (token.step === 0 && gridRect && gridRect.width > 0) {
-          const slotEl = document.querySelector('[data-slot="' + color + '-' + idx + '"]');
-          if (slotEl) {
-            const slotRect = slotEl.getBoundingClientRect();
-            basePercent = {
-              left: ((slotRect.left + slotRect.width / 2 - gridRect.left) / gridRect.width) * 100,
-              top: ((slotRect.top + slotRect.height / 2 - gridRect.top) / gridRect.height) * 100
-            };
-          }
-        }
-
-        if (!basePercent) {
-          basePercent = this.coordsToPercent(r, c);
-        }
+        const basePercent = this.coordsToPercent(r, c);
 
         let offsetX = 0;
         let offsetY = 0;

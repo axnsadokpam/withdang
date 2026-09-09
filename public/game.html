@@ -124,12 +124,6 @@
           <line x1="8" y1="23" x2="16" y2="23"/>
         </svg>
       </button>
-      <button id="btn-toggle-chat" class="hud-icon-btn chat-toggle-btn active" title="Toggle Chat & Activity">
-        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        <span id="chat-unread-dot" class="unread-dot"></span>
-      </button>
     </div>
   </header>
 
@@ -367,40 +361,6 @@
 
       </div>
     </section>
-
-    <!-- RIGHT SOCIAL STATION (COLLAPSIBLE) -->
-    <aside class="hud-station hud-right" id="hud-right">
-      
-      <div class="hud-card social-card">
-        <div class="hud-card-header social-header">
-          <div class="social-title-box">
-            <svg class="social-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <span class="card-caption">CHAT & ACTIVITY</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <button id="btn-mobile-rules" class="hud-mini-btn" title="How to Play" style="margin-right: 4px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </button>
-            <button id="btn-collapse-chat" class="hud-mini-btn" title="Collapse Panel">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="chat-messages-wrap" id="chat-messages">
-        </div>
-
-        <div class="chat-input-bar">
-          <input type="text" id="chat-input" class="chat-text-input" placeholder="Type a message..." maxlength="60" autocomplete="off">
-          <button id="btn-chat-send" class="chat-send-btn" title="Send message">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-    </aside>
 
   </main>
 

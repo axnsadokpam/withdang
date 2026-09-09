@@ -254,18 +254,12 @@ body.arena-body {
   z-index: 10;
   flex: 1;
   display: grid;
-  grid-template-columns: 270px 1fr 280px;
-  gap: 20px;
-  padding: 16px 24px;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  padding: 16px 28px;
   height: calc(100vh - 52px);
   box-sizing: border-box;
   align-items: center;
-  transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.arena-stage.chat-collapsed {
-  grid-template-columns: 270px 1fr 0px;
-  gap: 16px;
 }
 
 /* HUD STATIONS */
@@ -1281,12 +1275,9 @@ button, .token, .cell {
 /* TABLET LANDSCAPE (1024px - 1200px) */
 @media (max-width: 1200px) {
   .arena-stage {
-    grid-template-columns: 240px 1fr 260px;
-    gap: 14px;
+    grid-template-columns: 240px 1fr;
+    gap: 16px;
     padding: 10px 16px;
-  }
-  .arena-stage.chat-collapsed {
-    grid-template-columns: 240px 1fr 0px;
   }
   :root {
     --board-size: min(76vh, 580px);
