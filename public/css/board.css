@@ -599,6 +599,20 @@ body.arena-body {
     0 0 70px rgba(0, 0, 0, 0.7);
   overflow: hidden;
   user-select: none;
+  transform: rotate(var(--board-rotation, 0deg));
+  transition: transform 0.85s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* COUNTER-ROTATION: Keep all text, numbers, pips, and icons upright regardless of board rotation */
+.token-inner,
+.safe-star svg,
+.start-star-svg,
+.lane-arrow-svg,
+.flow-arrow-svg,
+.yard-slot span,
+.hub-crest-svg {
+  transform: rotate(calc(-1 * var(--board-rotation, 0deg)));
+  transition: transform 0.85s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .ludo-grid {
@@ -2045,92 +2059,91 @@ button, .token, .cell {
   transform: translateY(1px);
 }
 
-.reactions-floating-bar {
+/* TARGET-LOCKED STRIKE ZONE CROSSHAIRS */
+.token.target-locked::after {
+  content: "";
   position: absolute;
-  bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(30, 24, 28, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 6px 12px;
-  border-radius: 24px;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 40;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.reaction-btn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px 6px;
+  inset: -6px;
   border-radius: 50%;
-  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.reaction-btn:hover {
-  transform: scale(1.35) translateY(-3px);
-}
-
-.reaction-btn:active {
-  transform: scale(0.95);
-}
-
-.floating-reactions-stage {
-  position: absolute;
-  inset: 0;
+  border: 2px dashed #f43f5e;
+  animation: targetLockedSpin 2s linear infinite;
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.7);
   pointer-events: none;
-  overflow: hidden;
-  z-index: 50;
+}
+@keyframes targetLockedSpin {
+  0% { transform: rotate(0deg) scale(1); opacity: 0.8; }
+  50% { transform: rotate(180deg) scale(1.15); opacity: 1; }
+  100% { transform: rotate(360deg) scale(1); opacity: 0.8; }
 }
 
-.floating-emoji {
+/* REVENGE READY AURA */
+.token.revenge-ready {
+  filter: drop-shadow(0 0 12px #f59e0b) drop-shadow(0 0 20px #ef4444);
+  animation: revengePulse 1.2s ease-in-out infinite;
+}
+@keyframes revengePulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.15); }
+}
+
+/* SANCTUARY SHIELD EFFECT */
+.sanctuary-shield-ring {
   position: absolute;
-  bottom: 60px;
-  font-size: 32px;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
-  animation: floatUpAndFade 2.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  width: calc(var(--cell-size) * 1.5);
+  height: calc(var(--cell-size) * 1.5);
+  border: 2.5px solid #38bdf8;
+  border-radius: 50%;
   pointer-events: none;
-  user-select: none;
+  transform: translate(-50%, -50%) scale(0.4);
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.9), inset 0 0 15px rgba(56, 189, 248, 0.6);
+  animation: shieldExpandAnim 1.1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+  z-index: 25;
+}
+@keyframes shieldExpandAnim {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  35% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+  70% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; }
 }
 
-@keyframes floatUpAndFade {
-  0% {
-    opacity: 0;
-    transform: translateY(0) scale(0.4) rotate(0deg);
-  }
-  15% {
-    opacity: 1;
-    transform: translateY(-40px) scale(1.25) rotate(-6deg);
-  }
-  40% {
-    transform: translateY(-140px) scale(1.1) rotate(6deg);
-  }
-  80% {
-    opacity: 0.9;
-    transform: translateY(-280px) scale(1.0) rotate(-4deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-380px) scale(0.8) rotate(8deg);
-  }
+/* HOME GOAL PULSE */
+.center-home-hub.home-goal-pulse {
+  animation: homeGoalRadialPulse 1.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+@keyframes homeGoalRadialPulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 0px #fbbf24); }
+  30% { transform: scale(1.18); filter: drop-shadow(0 0 40px #fbbf24) drop-shadow(0 0 80px #f59e0b); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(0,0,0,0)); }
 }
 
-@media (max-width: 1024px) {
-  .reactions-floating-bar {
-    bottom: 6px;
-    padding: 4px 10px;
-    gap: 6px;
-  }
-  .reaction-btn {
-    font-size: 18px;
-    padding: 2px 4px;
-  }
+/* BRUTAL COMBAT SCREEN SHAKE */
+.arena-center.shake-brutal {
+  animation: screenShakeBrutal 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@keyframes screenShakeBrutal {
+  10%, 90% { transform: translate3d(-3px, 0, 0); }
+  20%, 80% { transform: translate3d(4px, 2px, 0); }
+  30%, 50%, 70% { transform: translate3d(-6px, -3px, 0); }
+  40%, 60% { transform: translate3d(6px, 3px, 0); }
+}
+
+/* TACTILE INVALID PAWN SHAKE (Instead of log spam) */
+.shake-token-invalid {
+  animation: tokenInvalidShake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+}
+@keyframes tokenInvalidShake {
+  0%, 100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  20%, 60% { transform: translate(calc(-50% - 4px), -50%) scale(1) rotate(-4deg); }
+  40%, 80% { transform: translate(calc(-50% + 4px), -50%) scale(1) rotate(4deg); }
+}
+
+.pawn-card-btn.shake-token-invalid {
+  animation: hudBtnInvalidShake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+}
+@keyframes hudBtnInvalidShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
 /* CAPTURE SHOCKWAVE RING */

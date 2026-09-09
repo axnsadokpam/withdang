@@ -85,43 +85,7 @@ if (roomBadgeEl) {
   });
 }
 
-// =========================================================
-// FLOATING LIVE REACTIONS CONTROLLER
-// =========================================================
-const reactionsBar = document.getElementById("reactions-bar");
-const floatingStage = document.getElementById("floating-reactions-stage");
-
-if (reactionsBar) {
-  reactionsBar.querySelectorAll(".reaction-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const emoji = btn.dataset.emoji;
-      triggerHaptic('click');
-      socket.emit("send-reaction", { emoji });
-    });
-  });
-}
-
-socket.on("reaction-sent", (data) => {
-  if (window.sounds) window.sounds.playReactionPop();
-  spawnFloatingEmoji(data.emoji, data.color);
-});
-
-function spawnFloatingEmoji(emoji, color) {
-  if (!floatingStage) return;
-  const el = document.createElement("div");
-  el.className = "floating-emoji";
-  el.textContent = emoji;
-
-  // Random horizontal spawn position across center of board
-  const minX = 25;
-  const maxX = 75;
-  const randomX = minX + Math.random() * (maxX - minX);
-  el.style.left = randomX + "%";
-
-  floatingStage.appendChild(el);
-  setTimeout(() => { el.remove(); }, 2500);
-}
+// Reactions bar removed for pure tabletop focus
 
 
 // Universal Mobile Audio & Speech Unlock
@@ -258,29 +222,10 @@ if (btnCollapseChat) {
   });
 }
 
-if (tabChatAll && tabChatGame) {
-  tabChatAll.addEventListener("click", () => {
-    currentChatTab = "all";
-    tabChatAll.classList.add("active");
-    tabChatGame.classList.remove("active");
-    filterChatMessages();
-  });
-  tabChatGame.addEventListener("click", () => {
-    currentChatTab = "game";
-    tabChatGame.classList.add("active");
-    tabChatAll.classList.remove("active");
-    filterChatMessages();
-  });
-}
-
 function filterChatMessages() {
   const bubbles = chatMessages.querySelectorAll(".chat-bubble");
   bubbles.forEach((b) => {
-    if (currentChatTab === "all") {
-      b.style.display = "block";
-    } else {
-      b.style.display = b.dataset.msgType === "game" ? "block" : "none";
-    }
+    b.style.display = "block";
   });
 }
 
@@ -526,7 +471,21 @@ function handleTokenClick(tokenId) {
   if (!isMyTurn || currentGameState.phase !== "MOVE") return;
 
   if (!currentValidMoves.includes(tokenId)) {
-    addLogMessage("Pawn " + (tokenId + 1) + " cannot move with this roll", "game");
+    triggerHaptic("error");
+    const hudBtn = document.getElementById("token-btn-" + tokenId);
+    if (hudBtn) {
+      hudBtn.classList.remove("shake-token-invalid");
+      void hudBtn.offsetWidth;
+      hudBtn.classList.add("shake-token-invalid");
+      setTimeout(() => hudBtn.classList.remove("shake-token-invalid"), 350);
+    }
+    const tokenEl = document.querySelector(`.token-${myPlayerColor}[data-index="${tokenId}"]`);
+    if (tokenEl) {
+      tokenEl.classList.remove("shake-token-invalid");
+      void tokenEl.offsetWidth;
+      tokenEl.classList.add("shake-token-invalid");
+      setTimeout(() => tokenEl.classList.remove("shake-token-invalid"), 350);
+    }
     return;
   }
 
@@ -733,13 +692,26 @@ socket.on("token-moved", (data) => {
 
   // Execute step-by-step parabolic arc hop!
   boardRenderer.animateTokenHopSequence(data.player.color, data.tokenId, data.prevStep, data.newStep, () => {
+    const coords = boardRenderer.getCoordinates(data.player.color, data.newStep, data.tokenId);
+
     if (data.captureOccurred && data.capturedInfo) {
       triggerHaptic("capture");
-      const coords = boardRenderer.getCoordinates(data.player.color, data.newStep, data.tokenId);
       boardRenderer.triggerCaptureShockwave(coords[0], coords[1]);
+      boardRenderer.triggerScreenShake();
       if (window.sounds) window.sounds.playCapture();
       if (window.announcer) window.announcer.announceCapture(data.player.name, data.capturedInfo.player);
-      addLogMessage("Captured " + data.capturedInfo.player + "'s pawn!", "game");
+      addLogMessage("💥 BRUTAL TAKEDOWN! " + data.player.name + " smashed " + data.capturedInfo.player + "'s pawn back to the Yard!", "game");
+    } else if (data.isHomeGoal || data.newStep === 57) {
+      triggerHaptic("success");
+      boardRenderer.triggerHomeGoalCelebration();
+      if (window.sounds) window.sounds.playHomeGoal();
+      addLogMessage("🌟 GOAL! " + data.player.name + "'s pawn reached the Sanctuary!", "game");
+    } else if (data.isSafeSpot || boardRenderer.isPositionSafe(data.player.color, data.newStep)) {
+      boardRenderer.triggerSanctuaryShield(coords[0], coords[1]);
+      if (window.sounds) window.sounds.playSafeSpot();
+      addLogMessage("🛡️ " + data.player.name + " reached a Safe Haven!", "game");
+    } else {
+      if (window.sounds) window.sounds.playTileLand(false);
     }
 
     if (data.getsBonusTurn && !data.gameOver) {

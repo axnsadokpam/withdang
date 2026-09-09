@@ -44,6 +44,10 @@ class LudoGame {
       blue: [{ id: 0, step: 0 }, { id: 1, step: 0 }, { id: 2, step: 0 }, { id: 3, step: 0 }],
       red: [{ id: 0, step: 0 }, { id: 1, step: 0 }, { id: 2, step: 0 }, { id: 3, step: 0 }]
     };
+
+    // Dynamic Drama & Pity Engine tracking
+    this.turnsWithoutSix = { green: 0, yellow: 0, blue: 0, red: 0 };
+    this.revengeBuffs = { green: false, yellow: false, blue: false, red: false };
   }
 
   addPlayer(socketId, name) {
@@ -102,6 +106,71 @@ class LudoGame {
     return this.players[this.currentTurnIndex];
   }
 
+  calculateDynamicRoll(color) {
+    const weights = [1, 1, 1, 1, 1, 1]; // Indices 0-5 corresponding to rolls 1-6
+
+    // 1. PITY TIMER FOR YARDS: Ramp 6 probability if player is trapped in Yard
+    const myTokens = this.tokens[color] || [];
+    const hasTokensInYard = myTokens.some(t => t.step === 0);
+    const turnsStuck = this.turnsWithoutSix[color] || 0;
+
+    if (hasTokensInYard) {
+      if (turnsStuck >= 5) {
+        weights[5] += 4.5; // ~48% chance of rolling 6
+        weights[4] += 1.5; // Also slight boost for 5
+      } else if (turnsStuck >= 3) {
+        weights[5] += 2.5; // ~32% chance of rolling 6
+        weights[4] += 0.8;
+      } else if (turnsStuck >= 2) {
+        weights[5] += 1.0;
+      }
+    }
+
+    // 2. STRIKE ZONE DRAMA (Clash Catalyst):
+    // Add extra probability weight to the exact roll that knocks out an opponent pawn
+    for (const t of myTokens) {
+      if (t.step >= 1 && t.step <= 50) {
+        for (let r = 1; r <= 6; r++) {
+          const targetStep = t.step + r;
+          if (targetStep <= 51 && !board.isPositionSafe(color, targetStep)) {
+            const landingKey = board.getCellKey(color, targetStep);
+            for (const opp of this.players) {
+              if (opp.color === color) continue;
+              for (const oppToken of (this.tokens[opp.color] || [])) {
+                if (oppToken.step >= 1 && oppToken.step <= 51) {
+                  if (board.getCellKey(opp.color, oppToken.step) === landingKey) {
+                    weights[r - 1] += 2.2; // Strike zone fate weight!
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. UNDERDOG MOMENTUM (Rubber-Banding):
+    const allPawnHomeCounts = Object.values(this.matchStats).map(s => s.pawnsHome || 0);
+    const maxGoals = Math.max(0, ...allPawnHomeCounts);
+    const myGoals = (this.matchStats[color] && this.matchStats[color].pawnsHome) || 0;
+    if (maxGoals > myGoals) {
+      weights[3] += 0.5; // 4
+      weights[4] += 0.8; // 5
+      weights[5] += 0.9; // 6
+    }
+
+    // Sample from weighted distribution
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    let rand = Math.random() * totalWeight;
+    for (let i = 0; i < 6; i++) {
+      if (rand < weights[i]) {
+        return i + 1;
+      }
+      rand -= weights[i];
+    }
+    return Math.floor(Math.random() * 6) + 1;
+  }
+
   rollDice(socketId) {
     const current = this.getCurrentPlayer();
     if (!current || current.id !== socketId) {
@@ -111,7 +180,7 @@ class LudoGame {
       return { success: false, message: 'Cannot roll right now' };
     }
 
-    const roll = Math.floor(Math.random() * 6) + 1;
+    const roll = this.calculateDynamicRoll(current.color);
     this.diceValue = roll;
     this.lastActivity = Date.now();
     this.history.push({
@@ -126,6 +195,13 @@ class LudoGame {
       if (roll === 6) this.matchStats[current.color].sixes++;
     }
     this.turnDeadline = Date.now() + 30000;
+
+    // Update pity tracker
+    if (roll === 6) {
+      this.turnsWithoutSix[current.color] = 0;
+    } else {
+      this.turnsWithoutSix[current.color] = (this.turnsWithoutSix[current.color] || 0) + 1;
+    }
 
     this.consecutiveSixes = roll === 6 ? this.consecutiveSixes + 1 : 0;
 
@@ -166,6 +242,7 @@ class LudoGame {
       success: true,
       roll,
       validMoves,
+      hasRevenge: !!this.revengeBuffs[current.color],
       message: current.name + ' rolled a ' + roll
     };
   }
@@ -174,12 +251,10 @@ class LudoGame {
   isPathBlocked(playerColor, fromStep, toStep) {
     if (toStep <= fromStep) return false;
 
-    // Check intermediate and destination steps on the main track (1 to 51)
-    for (let s = fromStep + 1; s <= toStep; s++) {
+    // Check intermediate steps: jumping OVER an opponent wall is blocked!
+    for (let s = fromStep + 1; s < toStep; s++) {
       if (s >= 1 && s <= 51) {
         const cellKey = board.getCellKey(playerColor, s);
-
-        // Check if any opponent has 2 or more pawns on this cell
         for (const opp of this.players) {
           if (opp.color === playerColor) continue;
           const oppTokensOnCell = (this.tokens[opp.color] || []).filter(t => 
@@ -187,28 +262,31 @@ class LudoGame {
           );
 
           if (oppTokensOnCell.length >= 2) {
-            return true; // Blocked by opponent defensive wall!
+            return true; // Blocked: cannot leap over an opponent wall!
           }
         }
       }
     }
+
+    // Landing directly ON toStep:
+    // Wall Smashing rule: rolling the exact count allows smashing into the wall!
     return false;
   }
 
   getValidMoves(color, roll) {
     const tokens = this.tokens[color];
     const valid = [];
+    const hasRevenge = !!this.revengeBuffs[color];
 
     for (const token of tokens) {
       if (token.step === 0) {
-        if (roll === 6) {
-          // Check if starting tile is blocked by opponent wall
+        // Roll of 6 breaks out, or 5 if holding the Revenge Buff!
+        if (roll === 6 || (hasRevenge && roll === 5)) {
           if (!this.isPathBlocked(color, 0, 1)) {
             valid.push(token.id);
           }
         }
       } else if (token.step + roll <= 57) {
-        // Check if path is blocked by an opponent wall
         if (!this.isPathBlocked(color, token.step, token.step + roll)) {
           valid.push(token.id);
         }
@@ -234,6 +312,12 @@ class LudoGame {
 
     const token = this.tokens[current.color].find(t => t.id === tokenId);
     const prevStep = token.step;
+
+    // If escaping base with revenge buff, consume it
+    if (prevStep === 0 && this.revengeBuffs[current.color]) {
+      this.revengeBuffs[current.color] = false;
+    }
+
     let captureOccurred = false;
     let capturedInfo = null;
 
@@ -254,6 +338,9 @@ class LudoGame {
               if (board.getCellKey(p.color, opp.step) === landingKey) {
                 opp.step = 0;
                 captureOccurred = true;
+                // Award the victim a Revenge Buff for fast breakout on their turn!
+                this.revengeBuffs[p.color] = true;
+
                 if (this.matchStats[current.color]) {
                   this.matchStats[current.color].captures++;
                 }
@@ -271,6 +358,9 @@ class LudoGame {
       }
     }
 
+    const isSafeSpot = board.isPositionSafe(current.color, token.step);
+    const isHomeGoal = token.step === 57;
+
     const homeCount = this.tokens[current.color].filter(t => t.step === 57).length;
     const won = homeCount >= this.targetGoals;
     if (won) {
@@ -284,6 +374,8 @@ class LudoGame {
         newStep: token.step,
         captureOccurred,
         capturedInfo,
+        isSafeSpot,
+        isHomeGoal,
         gameOver: true,
         winner: current
       };
@@ -306,6 +398,8 @@ class LudoGame {
       roll: rolled,
       captureOccurred,
       capturedInfo,
+      isSafeSpot,
+      isHomeGoal,
       getsBonusTurn: bonus,
       nextPlayer: this.getCurrentPlayer()
     };
@@ -418,6 +512,8 @@ class LudoGame {
     this.diceValue = null;
     this.winner = null;
     this.turnDeadline = Date.now() + 30000;
+    this.turnsWithoutSix = { green: 0, yellow: 0, blue: 0, red: 0 };
+    this.revengeBuffs = { green: false, yellow: false, blue: false, red: false };
     this.matchStats = {
       green: { rolls: 0, sixes: 0, captures: 0, pawnsHome: 0 },
       yellow: { rolls: 0, sixes: 0, captures: 0, pawnsHome: 0 },
@@ -436,6 +532,7 @@ class LudoGame {
       players: this.players.map(p => ({
         ...p,
         stats: this.matchStats[p.color] || { rolls: 0, sixes: 0, captures: 0, pawnsHome: 0 },
+        hasRevenge: !!this.revengeBuffs[p.color],
         tokens: this.tokens[p.color] || [
           { id: 0, step: 0 },
           { id: 1, step: 0 },
@@ -452,7 +549,8 @@ class LudoGame {
       tokens: this.tokens,
       winner: this.winner,
       turnDeadline: this.turnDeadline,
-      matchStats: this.matchStats
+      matchStats: this.matchStats,
+      revengeBuffs: this.revengeBuffs
     };
   }
 }

@@ -194,12 +194,17 @@ class SoundManager {
   }
 
   /* --------------------------------------------------------- */
-  /* TACTILE DESTINATION TOUCHDOWN                             */
+  /* TACTILE DESTINATION TOUCHDOWN & SANCTUARY                 */
   /* --------------------------------------------------------- */
   playTileLand(isSafe = false) {
     if (this.muted) return;
     this.init();
     if (!this.ctx) return;
+
+    if (isSafe) {
+      this.playSafeSpot();
+      return;
+    }
 
     const t = this.ctx.currentTime;
 
@@ -217,31 +222,52 @@ class SoundManager {
     gain.connect(this._dest());
     osc.start(t);
     osc.stop(t + 0.12);
-
-    // If safe star tile, trigger soothing celeste chime chord (E6, G#6, B6)
-    if (isSafe) {
-      const chimeNotes = [1318.5, 1661.2, 1975.5];
-      chimeNotes.forEach((f, idx) => {
-        setTimeout(() => {
-          if (!this.ctx) return;
-          const ct = this.ctx.currentTime;
-          const chime = this.ctx.createOscillator();
-          const cGain = this.ctx.createGain();
-          chime.type = 'sine';
-          chime.frequency.setValueAtTime(f, ct);
-          cGain.gain.setValueAtTime(0.12, ct);
-          cGain.gain.exponentialRampToValueAtTime(0.001, ct + 0.38);
-          chime.connect(cGain);
-          cGain.connect(this._dest());
-          chime.start(ct);
-          chime.stop(ct + 0.38);
-        }, idx * 45);
-      });
-    }
   }
 
   /* --------------------------------------------------------- */
-  /* CINEMATIC KILL / CAPTURE KNOCKOUT STOMP                   */
+  /* SAFE SPOT CRYSTAL SANCTUARY CHIME                         */
+  /* --------------------------------------------------------- */
+  playSafeSpot() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // 1. Protective low hum (warm sanctuary shield)
+    const hum = this.ctx.createOscillator();
+    const hGain = this.ctx.createGain();
+    hum.type = 'sine';
+    hum.frequency.setValueAtTime(110, t);
+    hGain.gain.setValueAtTime(0.2, t);
+    hGain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+    hum.connect(hGain);
+    hGain.connect(this._dest());
+    hum.start(t);
+    hum.stop(t + 0.45);
+
+    // 2. Crystal Singing Bowl Harmonics (C6, G6, C7)
+    const crystalNotes = [1046.50, 1567.98, 2093.00];
+    crystalNotes.forEach((freq, idx) => {
+      setTimeout(() => {
+        if (!this.ctx) return;
+        const ct = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ct);
+        gain.gain.setValueAtTime(0.18 / (idx + 1), ct);
+        gain.gain.exponentialRampToValueAtTime(0.001, ct + 0.55);
+        osc.connect(gain);
+        gain.connect(this._dest());
+        osc.start(ct);
+        osc.stop(ct + 0.55);
+      }, idx * 35);
+    });
+  }
+
+  /* --------------------------------------------------------- */
+  /* VISCERAL KILL / CAPTURE KNOCKOUT STOMP                    */
   /* --------------------------------------------------------- */
   playCapture() {
     if (this.muted) return;
@@ -250,80 +276,127 @@ class SoundManager {
 
     const t = this.ctx.currentTime;
 
-    // 1. LAYER A: DEEP SUB-BASS SHOCK IMPACT (Earthquake thud)
+    // 1. LAYER A: DEEP SUB-BASS EARTHQUAKE STOMP
     const subOsc = this.ctx.createOscillator();
     const subGain = this.ctx.createGain();
     subOsc.type = 'sine';
-    subOsc.frequency.setValueAtTime(140, t);
-    subOsc.frequency.exponentialRampToValueAtTime(30, t + 0.38);
+    subOsc.frequency.setValueAtTime(160, t);
+    subOsc.frequency.exponentialRampToValueAtTime(32, t + 0.42);
 
-    subGain.gain.setValueAtTime(0.65, t);
-    subGain.gain.exponentialRampToValueAtTime(0.005, t + 0.38);
+    subGain.gain.setValueAtTime(0.85, t);
+    subGain.gain.exponentialRampToValueAtTime(0.005, t + 0.42);
 
     subOsc.connect(subGain);
     subGain.connect(this._dest());
     subOsc.start(t);
-    subOsc.stop(t + 0.38);
+    subOsc.stop(t + 0.42);
 
-    // 2. LAYER B: EXPLOSIVE STONE SHATTER / CRUNCH (Filtered transient crunch)
+    // 2. LAYER B: BONE/CERAMIC CRACK TRANSIENT (Explosive piece snap)
     if (this.noiseBuffer) {
       const noise = this.ctx.createBufferSource();
       noise.buffer = this.noiseBuffer;
 
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(2400, t);
-      filter.frequency.exponentialRampToValueAtTime(450, t + 0.22);
-      filter.Q.setValueAtTime(2, t);
+      filter.frequency.setValueAtTime(2800, t);
+      filter.frequency.exponentialRampToValueAtTime(380, t + 0.18);
+      filter.Q.setValueAtTime(2.5, t);
 
       const nGain = this.ctx.createGain();
-      nGain.gain.setValueAtTime(0.45, t);
-      nGain.gain.exponentialRampToValueAtTime(0.005, t + 0.22);
+      nGain.gain.setValueAtTime(0.65, t);
+      nGain.gain.exponentialRampToValueAtTime(0.005, t + 0.18);
 
       noise.connect(filter);
       filter.connect(nGain);
       nGain.connect(this._dest());
       noise.start(t);
-      noise.stop(t + 0.22);
+      noise.stop(t + 0.18);
     }
 
-    // 3. LAYER C: FLYBACK DESCENDING WHISTLE (Victim launched across board)
+    // 3. LAYER C: FLYBACK DOPPLER WHISTLE (Victim sent rocketing to base)
     setTimeout(() => {
       if (!this.ctx) return;
       const ct = this.ctx.currentTime;
       const flyOsc = this.ctx.createOscillator();
       const flyGain = this.ctx.createGain();
       flyOsc.type = 'triangle';
-      flyOsc.frequency.setValueAtTime(880, ct);
-      flyOsc.frequency.exponentialRampToValueAtTime(140, ct + 0.32);
+      flyOsc.frequency.setValueAtTime(940, ct);
+      flyOsc.frequency.exponentialRampToValueAtTime(120, ct + 0.35);
 
-      flyGain.gain.setValueAtTime(0.25, ct);
-      flyGain.gain.exponentialRampToValueAtTime(0.001, ct + 0.32);
+      flyGain.gain.setValueAtTime(0.3, ct);
+      flyGain.gain.exponentialRampToValueAtTime(0.001, ct + 0.35);
 
       flyOsc.connect(flyGain);
       flyGain.connect(this._dest());
       flyOsc.start(ct);
-      flyOsc.stop(ct + 0.32);
-    }, 60);
+      flyOsc.stop(ct + 0.35);
+    }, 45);
 
-    // 4. LAYER D: TRIUMPHANT POWER CHORD (Victor's reward stinger)
+    // 4. LAYER D: VICTORY IMPACT CHORD (Rewarding heavy brass slap)
     setTimeout(() => {
       if (!this.ctx) return;
       const ct = this.ctx.currentTime;
-      const chord = [523.25, 659.25, 783.99]; // C Major punch
+      const chord = [440, 554.37, 659.25, 880]; // A Major triumphal punch
       chord.forEach(f => {
         const o = this.ctx.createOscillator();
         const g = this.ctx.createGain();
         o.type = 'triangle';
         o.frequency.setValueAtTime(f, ct);
-        g.gain.setValueAtTime(0.18, ct);
-        g.gain.exponentialRampToValueAtTime(0.005, ct + 0.35);
+        g.gain.setValueAtTime(0.22, ct);
+        g.gain.exponentialRampToValueAtTime(0.005, ct + 0.38);
         o.connect(g);
         g.connect(this._dest());
         o.start(ct);
-        o.stop(ct + 0.35);
+        o.stop(ct + 0.38);
       });
-    }, 120);
+    }, 100);
+  }
+
+  /* --------------------------------------------------------- */
+  /* CELESTIAL HOME GOAL GLISSANDO & LOCK CLICK                */
+  /* --------------------------------------------------------- */
+  playHomeGoal() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // 1. Ascending Celestial Harp Glissando (C5 -> E5 -> G5 -> B5 -> C6 -> E6)
+    const harpNotes = [523.25, 659.25, 783.99, 987.77, 1046.50, 1318.51];
+    harpNotes.forEach((f, idx) => {
+      setTimeout(() => {
+        if (!this.ctx) return;
+        const ct = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, ct);
+        gain.gain.setValueAtTime(0.25, ct);
+        gain.gain.exponentialRampToValueAtTime(0.005, ct + 0.4);
+        osc.connect(gain);
+        gain.connect(this._dest());
+        osc.start(ct);
+        osc.stop(ct + 0.4);
+      }, idx * 55);
+    });
+
+    // 2. Heavy Golden Gate Lock Click at the climax
+    setTimeout(() => {
+      if (!this.ctx) return;
+      const ct = this.ctx.currentTime;
+      const click = this.ctx.createOscillator();
+      const cGain = this.ctx.createGain();
+      click.type = 'triangle';
+      click.frequency.setValueAtTime(320, ct);
+      click.frequency.exponentialRampToValueAtTime(80, ct + 0.08);
+      cGain.gain.setValueAtTime(0.4, ct);
+      cGain.gain.exponentialRampToValueAtTime(0.001, ct + 0.08);
+      click.connect(cGain);
+      cGain.connect(this._dest());
+      click.start(ct);
+      click.stop(ct + 0.08);
+    }, harpNotes.length * 55);
   }
 
   /* --------------------------------------------------------- */

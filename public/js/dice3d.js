@@ -147,15 +147,76 @@ class ThreeDiceController {
   animate() {
     requestAnimationFrame(() => this.animate());
 
+    const now = performance.now();
+
     if (this.isRolling) {
+      // Exponential air friction decay
+      this.spinVelocity.x *= 0.948;
+      this.spinVelocity.y *= 0.948;
+      this.spinVelocity.z *= 0.948;
+
       this.diceMesh.rotation.x += this.spinVelocity.x;
       this.diceMesh.rotation.y += this.spinVelocity.y;
       this.diceMesh.rotation.z += this.spinVelocity.z;
 
-      this.bouncePhase += this.bounceSpeed;
-      const bounceAmp = 0.12 * this.currentPower;
-      const scale = 1.0 + Math.sin(this.bouncePhase) * bounceAmp;
-      this.diceMesh.scale.set(scale, scale, scale);
+      // Table bounce simulation (parabolic arcs decaying over duration)
+      const elapsed = now - this.rollStartTime;
+      const progress = Math.min(1.0, elapsed / this.rollDuration);
+      const bounceDecay = 1.0 - progress;
+      const verticalHop = Math.abs(Math.sin(progress * Math.PI * 3.5)) * bounceDecay * 0.35 * this.currentPower;
+      this.diceMesh.position.y = verticalHop;
+
+      // Dynamic squish & stretch on impact
+      const squish = 1.0 - Math.abs(Math.sin(progress * Math.PI * 3.5)) * 0.08 * bounceDecay;
+      this.diceMesh.scale.set(1.0 + (1.0 - squish) * 0.5, squish, 1.0 + (1.0 - squish) * 0.5);
+
+      if (elapsed >= this.rollDuration) {
+        this.isRolling = false;
+        this.isSettling = true;
+        this.settleStartTime = now;
+        this.diceMesh.position.y = 0;
+
+        const rot = this.faceRotations[this.finalRollValue] || { x: 0, y: 0, z: 0 };
+        const twoPi = Math.PI * 2;
+        const targetX = Math.round(this.diceMesh.rotation.x / twoPi) * twoPi + rot.x;
+        const targetY = Math.round(this.diceMesh.rotation.y / twoPi) * twoPi + rot.y;
+        const targetZ = Math.round(this.diceMesh.rotation.z / twoPi) * twoPi + rot.z;
+
+        this.targetRotation = { x: targetX, y: targetY, z: targetZ };
+        this.settleStartRotation = {
+          x: this.diceMesh.rotation.x,
+          y: this.diceMesh.rotation.y,
+          z: this.diceMesh.rotation.z
+        };
+
+        // Table contact impact thud
+        if (window.sounds && typeof window.sounds.playTileLand === "function") {
+          window.sounds.playTileLand(false);
+        }
+      }
+    } else if (this.isSettling) {
+      // Elastic spring settle into exact target pip angle
+      const settleElapsed = (now - this.settleStartTime) / 160; // 160ms elastic settle
+      if (settleElapsed < 1.0) {
+        // Damped harmonic easing: 1 - e^(-4t) * cos(6t)
+        const t = settleElapsed;
+        const ease = 1 - Math.exp(-5 * t) * Math.cos(4 * Math.PI * t * 0.4);
+        this.diceMesh.rotation.x = this.settleStartRotation.x + (this.targetRotation.x - this.settleStartRotation.x) * ease;
+        this.diceMesh.rotation.y = this.settleStartRotation.y + (this.targetRotation.y - this.settleStartRotation.y) * ease;
+        this.diceMesh.rotation.z = this.settleStartRotation.z + (this.targetRotation.z - this.settleStartRotation.z) * ease;
+
+        const microSquish = 1.0 - Math.sin(t * Math.PI) * 0.05;
+        this.diceMesh.scale.set(1.0 + (1.0 - microSquish) * 0.3, microSquish, 1.0 + (1.0 - microSquish) * 0.3);
+      } else {
+        this.isSettling = false;
+        this.diceMesh.rotation.set(this.targetRotation.x, this.targetRotation.y, this.targetRotation.z);
+        this.currentRotation = { ...this.targetRotation };
+        this.diceMesh.scale.set(1, 1, 1);
+
+        const cb = this.pendingCallback;
+        this.pendingCallback = null;
+        if (cb) cb(this.finalRollValue);
+      }
     } else if (this.isCharging) {
       // Physical micro-tremble while charging
       const jitter = (Math.random() - 0.5) * (0.04 + this.chargeRatio * 0.08);
@@ -174,10 +235,6 @@ class ThreeDiceController {
   }
 
   roll(finalValue, powerMultiplier = 1.0, callback) {
-    if (this.rollTimeout) {
-      clearTimeout(this.rollTimeout);
-      this.rollTimeout = null;
-    }
     if (this.pendingCallback) {
       const cb = this.pendingCallback;
       this.pendingCallback = null;
@@ -186,44 +243,27 @@ class ThreeDiceController {
 
     this.stopCharging();
     this.isRolling = true;
+    this.isSettling = false;
     this.pendingCallback = callback;
+    this.finalRollValue = finalValue;
     if (this.btn) this.btn.disabled = true;
 
     const power = Math.max(0.8, Math.min(powerMultiplier, 2.2));
     this.currentPower = power;
+    this.rollStartTime = performance.now();
 
     if (window.sounds) window.sounds.playDiceRoll(power);
 
-    // Spin velocity scales with physical throw power
-    const speedBase = 0.36 + power * 0.22;
+    // Explosive launch angular velocity scaled to power
+    const speedBase = 0.52 + power * 0.28;
     this.spinVelocity = {
-      x: (speedBase + Math.random() * 0.15) * (Math.random() > 0.5 ? 1 : -1),
-      y: (speedBase + Math.random() * 0.18) * (Math.random() > 0.5 ? 1 : -1),
-      z: (speedBase * 0.8 + Math.random() * 0.12)
+      x: (speedBase + Math.random() * 0.18) * (Math.random() > 0.5 ? 1 : -1),
+      y: (speedBase + Math.random() * 0.22) * (Math.random() > 0.5 ? 1 : -1),
+      z: (speedBase * 0.85 + Math.random() * 0.15) * (Math.random() > 0.5 ? 1 : -1)
     };
-    this.bouncePhase = 0;
-    this.bounceSpeed = 0.22 + power * 0.08;
 
-    // Dynamic duration: Quick flick = 400ms, Power throw = 700ms
-    const rollDuration = Math.round(380 + power * 150);
-
-    this.rollTimeout = setTimeout(() => {
-      this.isRolling = false;
-      this.rollTimeout = null;
-
-      const rot = this.faceRotations[finalValue] || { x: 0, y: 0, z: 0 };
-      const twoPi = Math.PI * 2;
-      const targetX = Math.round(this.diceMesh.rotation.x / twoPi) * twoPi + rot.x;
-      const targetY = Math.round(this.diceMesh.rotation.y / twoPi) * twoPi + rot.y;
-      const targetZ = Math.round(this.diceMesh.rotation.z / twoPi) * twoPi + rot.z;
-
-      this.targetRotation = { x: targetX, y: targetY, z: targetZ };
-      this.currentRotation = { x: targetX, y: targetY, z: targetZ };
-
-      const cb = this.pendingCallback;
-      this.pendingCallback = null;
-      if (cb) cb(finalValue);
-    }, rollDuration);
+    // Dynamic duration: snappy 380ms - 520ms
+    this.rollDuration = Math.round(360 + power * 110);
   }
 
   showValue(val) {

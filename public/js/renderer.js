@@ -33,7 +33,7 @@ const BOARD_CONSTANTS = {
     blue: [[11, 11], [11, 12], [12, 11], [12, 12]],
     yellow: [[11, 2], [11, 3], [12, 2], [12, 3]]
   },
-  SAFE_TRACK_INDICES: [0, 8, 13, 21, 26, 34, 39, 47],
+  SAFE_TRACK_INDICES: [0, 13, 26, 39],
   DIRECTION_ARROWS: {
     "6_0": "flowUp", "0_6": "flowRight", "0_7": "flowRight", "0_8": "flowDown",
     "6_14": "flowDown", "7_14": "flowDown", "8_14": "flowLeft",
@@ -149,11 +149,6 @@ class BoardRenderer {
           }
         });
 
-        const key = r + "_" + c;
-        if (BOARD_CONSTANTS.DIRECTION_ARROWS[key] && !cell.innerHTML) {
-          cell.innerHTML = '<span class="track-flow">' + BOARD_SVGS[BOARD_CONSTANTS.DIRECTION_ARROWS[key]] + '</span>';
-        }
-
         this.grid.appendChild(cell);
       }
     }
@@ -171,6 +166,12 @@ class BoardRenderer {
       return BOARD_CONSTANTS.HOME_COLUMNS[color][step - 52];
     }
     return BOARD_CONSTANTS.HOME_DESTINATIONS[color];
+  }
+
+  isPositionSafe(color, step) {
+    if (step === 0 || step >= 52) return true;
+    const trackIdx = (BOARD_CONSTANTS.START_OFFSETS[color] + (step - 1)) % 52;
+    return BOARD_CONSTANTS.SAFE_TRACK_INDICES.includes(trackIdx);
   }
 
   coordsToPercent(r, c) {
@@ -365,6 +366,10 @@ class BoardRenderer {
     this.lastValidMoves = validMoves;
     this.lastMyPlayerColor = myPlayerColor;
 
+    if (myPlayerColor) {
+      this.setOrientation(myPlayerColor);
+    }
+
     if (this.isAnimating) return;
 
     const isMyTurn = gameState.currentTurn === myPlayerColor;
@@ -405,6 +410,34 @@ class BoardRenderer {
         });
       });
     });
+
+    // Calculate Target-Locked Opponent Pawns (within 1-6 steps of my active pawns)
+    const targetLockedKeys = new Set();
+    if (myPlayerColor && colorTokens[myPlayerColor]) {
+      const myActiveTokens = colorTokens[myPlayerColor].filter(t => t.step >= 1 && t.step <= 50);
+      myActiveTokens.forEach(myToken => {
+        for (let roll = 1; roll <= 6; roll++) {
+          const targetStep = myToken.step + roll;
+          if (targetStep <= 51 && !this.isPositionSafe(myPlayerColor, targetStep)) {
+            const [targetR, targetC] = this.getCoordinates(myPlayerColor, targetStep, 0);
+            const targetCellKey = targetR + "_" + targetC;
+
+            Object.keys(colorTokens).forEach(oppColor => {
+              if (oppColor !== myPlayerColor) {
+                colorTokens[oppColor].forEach((oppToken, oppIdx) => {
+                  if (oppToken.step >= 1 && oppToken.step <= 51) {
+                    const [oppR, oppC] = this.getCoordinates(oppColor, oppToken.step, oppIdx);
+                    if (oppR === targetR && oppC === targetC) {
+                      targetLockedKeys.add(oppColor + "-" + oppIdx);
+                    }
+                  }
+                });
+              }
+            });
+          }
+        }
+      });
+    }
 
     const activeTokenKeys = new Set();
     const gridRect = this.grid ? this.grid.getBoundingClientRect() : null;
@@ -498,6 +531,21 @@ class BoardRenderer {
         } else {
           tokenEl.classList.remove("can-move");
         }
+
+        // Strike Zone Radar: Target-Locked Crosshairs
+        if (targetLockedKeys.has(tokenKey)) {
+          tokenEl.classList.add("target-locked");
+        } else {
+          tokenEl.classList.remove("target-locked");
+        }
+
+        // Revenge Breakout Aura
+        const hasRevenge = !!(gameState.hasRevenge || (gameState.revengeBuffs && gameState.revengeBuffs[color]));
+        if (isMine && token.step === 0 && hasRevenge) {
+          tokenEl.classList.add("revenge-ready");
+        } else {
+          tokenEl.classList.remove("revenge-ready");
+        }
       });
     });
 
@@ -520,6 +568,57 @@ class BoardRenderer {
     setTimeout(() => {
       if (ring && ring.parentNode) ring.remove();
     }, 850);
+  }
+
+  setOrientation(playerColor) {
+    if (!playerColor) return;
+    this.currentOrientationColor = playerColor;
+    // Map player's quadrant to Bottom-Left (BL)
+    // Yellow = 0deg, Blue = 90deg, Red = 180deg, Green = 270deg
+    const rotations = {
+      yellow: 0,
+      blue: 90,
+      red: 180,
+      green: 270
+    };
+    const deg = rotations[playerColor] !== undefined ? rotations[playerColor] : 0;
+    const boardEl = document.getElementById("board-container");
+    if (boardEl) {
+      boardEl.style.setProperty("--board-rotation", deg + "deg");
+    }
+  }
+
+  triggerSanctuaryShield(r, c) {
+    if (r === undefined || c === undefined) return;
+    const shield = document.createElement("div");
+    shield.className = "sanctuary-shield-ring";
+    const percent = this.coordsToPercent(r, c);
+    shield.style.top = percent.top + "%";
+    shield.style.left = percent.left + "%";
+    this.grid.appendChild(shield);
+    setTimeout(() => {
+      if (shield && shield.parentNode) shield.remove();
+    }, 1200);
+  }
+
+  triggerHomeGoalCelebration() {
+    const hub = document.querySelector(".center-home-hub");
+    if (hub) {
+      hub.classList.remove("home-goal-pulse");
+      void hub.offsetWidth;
+      hub.classList.add("home-goal-pulse");
+      setTimeout(() => hub.classList.remove("home-goal-pulse"), 1800);
+    }
+  }
+
+  triggerScreenShake() {
+    const arena = document.querySelector(".arena-center");
+    if (arena) {
+      arena.classList.remove("shake-brutal");
+      void arena.offsetWidth;
+      arena.classList.add("shake-brutal");
+      setTimeout(() => arena.classList.remove("shake-brutal"), 500);
+    }
   }
 
   triggerVictoryConfetti() {

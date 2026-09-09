@@ -1,4 +1,4 @@
-﻿const COLORS = ['green', 'yellow', 'blue', 'red'];
+const COLORS = ['green', 'yellow', 'blue', 'red'];
 
 const MAIN_TRACK = [
   [6, 1],  [6, 2],  [6, 3],  [6, 4],  [6, 5],
@@ -60,7 +60,8 @@ const BASE_SLOTS = {
   ]
 };
 
-const SAFE_TRACK_INDICES = [0, 8, 13, 21, 26, 34, 39, 47];
+// Only the 4 starter gates are safe on the main track; the 4 corners are now contested danger zones!
+const SAFE_TRACK_INDICES = [0, 13, 26, 39];
 
 module.exports = {
   COLORS,
