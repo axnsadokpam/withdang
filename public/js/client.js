@@ -447,22 +447,34 @@ window.addEventListener("keyup", (e) => {
   }
 });
 
-// Pointer & Touch Listeners for Button & 3D Box
+// Pointer & Touch Listeners for Button & 3D Box (Safari / iOS Optimized)
+let activeRollPointerId = null;
+
 [btnRollDice, dice3dContainer].forEach(el => {
   if (!el) return;
   el.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
+    if (window.sounds) window.sounds.init();
+    if (activeRollPointerId !== null) return;
+    activeRollPointerId = e.pointerId;
+    if (el.setPointerCapture) {
+      try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    }
     startDiceCharge();
   });
   el.addEventListener("pointerup", (e) => {
-    e.preventDefault();
-    releaseDiceCharge();
+    if (e.pointerId === activeRollPointerId) {
+      activeRollPointerId = null;
+      if (el.releasePointerCapture) {
+        try { el.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+      releaseDiceCharge();
+    }
   });
-  el.addEventListener("pointerleave", () => {
-    if (chargeStartTime) releaseDiceCharge();
-  });
-  el.addEventListener("pointercancel", () => {
-    if (chargeStartTime) releaseDiceCharge();
+  el.addEventListener("pointercancel", (e) => {
+    if (e.pointerId === activeRollPointerId) {
+      activeRollPointerId = null;
+      releaseDiceCharge();
+    }
   });
 });
 
@@ -640,8 +652,8 @@ socket.on("game-updated", (data) => {
 });
 
 socket.on("dice-rolled", (data) => {
-  isRollInFlight = false;
   dice3d.roll(data.roll, data.power || 1.0, () => {
+    isRollInFlight = false;
     currentGameState = data.gameState;
     currentValidMoves = data.validMoves || [];
 

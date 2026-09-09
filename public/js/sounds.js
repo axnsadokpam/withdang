@@ -10,11 +10,13 @@ class SoundManager {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
-        this.ctx = new AudioCtx();
-        this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(this.muted ? 0 : 1, this.ctx.currentTime);
-        this.masterGain.connect(this.ctx.destination);
-        this._buildNoiseBuffer();
+        try {
+          this.ctx = new AudioCtx();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.setValueAtTime(this.muted ? 0 : 1, this.ctx.currentTime);
+          this.masterGain.connect(this.ctx.destination);
+          this._buildNoiseBuffer();
+        } catch (e) {}
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
@@ -24,13 +26,17 @@ class SoundManager {
 
   _buildNoiseBuffer() {
     if (!this.ctx || this.noiseBuffer) return;
-    const bufferSize = this.ctx.sampleRate * 1.5;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
-    this.noiseBuffer = buffer;
+    try {
+      // 120ms buffer (only ~5,700 samples) instead of 1.5s (72,000 samples)
+      // Completely eliminates synchronous main-thread allocation lag in Safari
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      this.noiseBuffer = buffer;
+    } catch (e) {}
   }
 
   toggleMute() {
@@ -50,9 +56,8 @@ class SoundManager {
   /* REALISTIC TUMBLING DICE CLATTER                          */
   /* --------------------------------------------------------- */
   
-  
   playReactionPop() {
-    if (this.muted || !this.ctx) return;
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
     try {
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
@@ -73,7 +78,7 @@ class SoundManager {
   }
 
   playDiceShake(intensity = 0.5) {
-    if (this.muted || !this.ctx) return;
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
     try {
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
@@ -96,56 +101,55 @@ class SoundManager {
   playDiceRoll(power = 1.0) {
     if (this.muted) return;
     this.init();
-    if (!this.ctx) return;
+    if (!this.ctx || this.ctx.state !== 'running') return;
 
-    const now = this.ctx.currentTime;
-    const bounceCount = 6 + Math.floor(Math.random() * 3);
+    // 3 snappy, visceral bounces: lightweight, physical, zero audio hitching on Safari
+    const bounces = [
+      { delay: 0.0, freq: 360, vol: 0.14, dur: 0.04, noiseVol: 0.08 },
+      { delay: 0.12, freq: 260, vol: 0.18, dur: 0.05, noiseVol: 0.11 },
+      { delay: 0.25, freq: 150, vol: 0.28, dur: 0.08, noiseVol: 0.18, isFinal: true }
+    ];
 
-    for (let i = 0; i < bounceCount; i++) {
-      const delay = Math.pow(i / bounceCount, 1.4) * 0.48; // accelerating/decelerating rhythm
+    bounces.forEach(b => {
       setTimeout(() => {
-        if (!this.ctx) return;
-        const t = this.ctx.currentTime;
-        const isFinal = i === bounceCount - 1;
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = b.isFinal ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(b.freq, t);
+          osc.frequency.exponentialRampToValueAtTime(b.freq * 0.5, t + b.dur);
 
-        // Acoustic wood/acrylic clack
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = isFinal ? 'triangle' : 'sine';
-        const baseFreq = isFinal ? 140 : 280 + Math.random() * 220;
-        osc.frequency.setValueAtTime(baseFreq, t);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, t + (isFinal ? 0.09 : 0.04));
+          gain.gain.setValueAtTime(b.vol, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + b.dur);
 
-        const vol = isFinal ? 0.28 : 0.12 + Math.random() * 0.08;
-        gain.gain.setValueAtTime(vol, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + (isFinal ? 0.09 : 0.04));
+          osc.connect(gain);
+          gain.connect(this._dest());
+          osc.start(t);
+          osc.stop(t + b.dur);
 
-        osc.connect(gain);
-        gain.connect(this._dest());
-        osc.start(t);
-        osc.stop(t + (isFinal ? 0.09 : 0.04));
+          if (this.noiseBuffer) {
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = this.noiseBuffer;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(2000, t);
+            filter.Q.setValueAtTime(2.5, t);
 
-        // Noise click component (hard die surface)
-        if (this.noiseBuffer) {
-          const noise = this.ctx.createBufferSource();
-          noise.buffer = this.noiseBuffer;
-          const filter = this.ctx.createBiquadFilter();
-          filter.type = 'bandpass';
-          filter.frequency.setValueAtTime(1800 + Math.random() * 800, t);
-          filter.Q.setValueAtTime(3, t);
+            const nGain = this.ctx.createGain();
+            nGain.gain.setValueAtTime(b.noiseVol, t);
+            nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
 
-          const nGain = this.ctx.createGain();
-          nGain.gain.setValueAtTime(isFinal ? 0.2 : 0.08, t);
-          nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-
-          noise.connect(filter);
-          filter.connect(nGain);
-          nGain.connect(this._dest());
-          noise.start(t);
-          noise.stop(t + 0.03);
-        }
-      }, delay * 1000);
-    }
+            noise.connect(filter);
+            filter.connect(nGain);
+            nGain.connect(this._dest());
+            noise.start(t);
+            noise.stop(t + 0.025);
+          }
+        } catch (e) {}
+      }, b.delay * 1000);
+    });
   }
 
   /* --------------------------------------------------------- */
@@ -600,3 +604,16 @@ window.SoundManager = SoundManager;
 window.sounds = new SoundManager();
 window.ArenaAnnouncer = ArenaAnnouncer;
 window.announcer = new ArenaAnnouncer();
+
+// Safari & iOS Web Audio Gesture Unlocker
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    if (window.sounds) window.sounds.init();
+    ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(evt => {
+      document.removeEventListener(evt, unlockAudio, true);
+    });
+  };
+  ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(evt => {
+    document.addEventListener(evt, unlockAudio, { capture: true, once: true });
+  });
+}

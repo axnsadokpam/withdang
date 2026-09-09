@@ -71,10 +71,15 @@ class ThreeDiceController {
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
     this.camera.position.set(0, 0, 4.4);
 
-    this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    this.renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      powerPreference: "high-performance"
+    });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    this.renderer.shadowMap.enabled = false;
+    this.needsRender = true;
     this.container.innerHTML = "";
     this.container.appendChild(this.renderer.domElement);
 
@@ -113,6 +118,7 @@ class ThreeDiceController {
       const ny = ((e.clientY - rect.top) / rect.height - 0.5) * 0.7;
       this.diceMesh.rotation.y = this.currentRotation.y + nx;
       this.diceMesh.rotation.x = this.currentRotation.x + ny;
+      this.needsRender = true;
     });
 
     window.addEventListener("resize", () => {
@@ -129,6 +135,7 @@ class ThreeDiceController {
   }
 
   startCharging() {
+    this.needsRender = true;
     this.isCharging = true;
     this.chargeRatio = 0;
     this.container.classList.add("charging");
@@ -229,16 +236,30 @@ class ThreeDiceController {
       const chargeLift = 1.0 + this.chargeRatio * 0.15;
       this.diceMesh.scale.set(chargeLift, chargeLift, chargeLift);
     } else {
+      const dx = Math.abs(this.targetRotation.x - this.diceMesh.rotation.x);
+      const dy = Math.abs(this.targetRotation.y - this.diceMesh.rotation.y);
+      const dz = Math.abs(this.targetRotation.z - this.diceMesh.rotation.z);
+      if (dx < 0.001 && dy < 0.001 && dz < 0.001) {
+        this.diceMesh.rotation.set(this.targetRotation.x, this.targetRotation.y, this.targetRotation.z);
+        this.diceMesh.scale.set(1, 1, 1);
+        if (this.needsRender) {
+          this.renderer.render(this.scene, this.camera);
+          this.needsRender = false;
+        }
+        return;
+      }
       this.diceMesh.rotation.x += (this.targetRotation.x - this.diceMesh.rotation.x) * 0.22;
       this.diceMesh.rotation.y += (this.targetRotation.y - this.diceMesh.rotation.y) * 0.22;
       this.diceMesh.rotation.z += (this.targetRotation.z - this.diceMesh.rotation.z) * 0.22;
       this.diceMesh.scale.set(1, 1, 1);
+      this.needsRender = true;
     }
 
     this.renderer.render(this.scene, this.camera);
   }
 
   roll(finalValue, powerMultiplier = 1.0, callback) {
+    this.needsRender = true;
     if (this.rollTimeout) {
       clearTimeout(this.rollTimeout);
       this.rollTimeout = null;
@@ -298,6 +319,8 @@ class ThreeDiceController {
     this.currentRotation = { x: rot.x, y: rot.y, z: rot.z };
     this.diceMesh.rotation.set(rot.x, rot.y, rot.z);
     this.diceMesh.scale.set(1, 1, 1);
+    this.needsRender = true;
+    this.renderer.render(this.scene, this.camera);
   }
 }
 
