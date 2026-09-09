@@ -853,7 +853,8 @@ body.arena-body {
   position: absolute;
   top: -22px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) rotate(calc(-1 * var(--board-rotation, 0deg)));
+  transform-origin: center center;
   padding: 3px 8px;
   border-radius: 12px;
   font-size: 10px;
@@ -867,8 +868,8 @@ body.arena-body {
 }
 
 @keyframes badgeFloat {
-  from { transform: translateX(-50%) translateY(0); }
-  to { transform: translateX(-50%) translateY(-3px); }
+  from { transform: translateX(-50%) rotate(calc(-1 * var(--board-rotation, 0deg))) translateY(0); }
+  to { transform: translateX(-50%) rotate(calc(-1 * var(--board-rotation, 0deg))) translateY(-3px); }
 }
 
 .badge-capture {

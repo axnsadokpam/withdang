@@ -534,6 +534,7 @@ setInterval(() => {
           validMoves: rollRes.validMoves,
           turnPassed: rollRes.turnPassed,
           consecutiveSixes: rollRes.consecutiveSixes,
+          autoPass: rollRes.turnPassed || rollRes.autoPass || false,
           autoPassed: true,
           gameState: game.getPublicState()
         });

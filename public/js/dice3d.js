@@ -208,6 +208,10 @@ class ThreeDiceController {
         const microSquish = 1.0 - Math.sin(t * Math.PI) * 0.05;
         this.diceMesh.scale.set(1.0 + (1.0 - microSquish) * 0.3, microSquish, 1.0 + (1.0 - microSquish) * 0.3);
       } else {
+        if (this.rollTimeout) {
+          clearTimeout(this.rollTimeout);
+          this.rollTimeout = null;
+        }
         this.isSettling = false;
         this.diceMesh.rotation.set(this.targetRotation.x, this.targetRotation.y, this.targetRotation.z);
         this.currentRotation = { ...this.targetRotation };
@@ -235,6 +239,10 @@ class ThreeDiceController {
   }
 
   roll(finalValue, powerMultiplier = 1.0, callback) {
+    if (this.rollTimeout) {
+      clearTimeout(this.rollTimeout);
+      this.rollTimeout = null;
+    }
     if (this.pendingCallback) {
       const cb = this.pendingCallback;
       this.pendingCallback = null;
@@ -262,8 +270,20 @@ class ThreeDiceController {
       z: (speedBase * 0.85 + Math.random() * 0.15) * (Math.random() > 0.5 ? 1 : -1)
     };
 
-    // Dynamic duration: snappy 380ms - 520ms
+    // Dynamic duration: snappy 360ms - 600ms
     this.rollDuration = Math.round(360 + power * 110);
+
+    // Safety watchdog: ensure callback fires even if requestAnimationFrame is throttled in background tabs
+    this.rollTimeout = setTimeout(() => {
+      if (this.pendingCallback) {
+        const cb = this.pendingCallback;
+        this.pendingCallback = null;
+        this.isRolling = false;
+        this.isSettling = false;
+        this.showValue(finalValue);
+        cb(finalValue);
+      }
+    }, this.rollDuration + 350);
   }
 
   showValue(val) {
