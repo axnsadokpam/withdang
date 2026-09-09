@@ -601,8 +601,6 @@ body.arena-body {
 .token-inner,
 .safe-star svg,
 .start-star-svg,
-.lane-arrow-svg,
-.flow-arrow-svg,
 .yard-slot span,
 .hub-crest-svg {
   transform: rotate(calc(-1 * var(--board-rotation, 0deg)));
