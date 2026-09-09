@@ -732,6 +732,10 @@ body {
   .portal-headline {
     font-size: 24px;
   }
+
+  .input-field {
+    font-size: 16px !important; /* Prevents iOS auto-zoom on focus */
+  }
 }
 
 /* MATCH MODE SELECTOR */
